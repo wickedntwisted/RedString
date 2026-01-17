@@ -44,13 +44,25 @@ export class RopeUtil extends ShapeUtil<IRopeShape> {
 	override canEdit() {
 		return false
 	}
-	
+
 	override canResize() {
 		return true
 	}
 
 	override isAspectRatioLocked() {
 		return false
+	}
+
+	override hideSelectionBoundingBox() {
+		return true
+	}
+
+	override hideRotateHandle() {
+		return true
+	}
+
+	override hideResizeHandles() {
+		return true
 	}
 
 	getGeometry(shape: IRopeShape): Geometry2d {
@@ -75,9 +87,8 @@ export class RopeUtil extends ShapeUtil<IRopeShape> {
 						width: shape.props.w,
 						height: thickness,
 						position: 'relative',
-						opacity,
-						transition: 'opacity 0.3s ease',
 						transformOrigin: 'left center', // Rotate from the left edge (start point)
+						pointerEvents: 'none',
 					}}
 					onPointerDown={(e) => {
 						// Only prevent selection if buttons are visible (not confirmed)
@@ -87,7 +98,7 @@ export class RopeUtil extends ShapeUtil<IRopeShape> {
 					}}
 				>
 					{/* Red string with subtle texture */}
-					<div 
+					<div
 						className="rope-string"
 						style={{
 							position: 'absolute',
@@ -96,10 +107,13 @@ export class RopeUtil extends ShapeUtil<IRopeShape> {
 							left: 0,
 							top: 0,
 							backgroundColor: redColor,
-							boxShadow: confirmed 
-								? '0 0 2px rgba(220, 38, 38, 0.5)' 
+							boxShadow: confirmed
+								? '0 0 2px rgba(220, 38, 38, 0.5)'
 								: '0 0 1px rgba(220, 38, 38, 0.3)',
 							borderRadius: '2px',
+							opacity,
+							transition: 'opacity 0.3s ease',
+							pointerEvents: confirmed ? 'auto' : 'none',
 						}}
 					/>
 					{/* Arrowhead at the end */}
@@ -115,13 +129,16 @@ export class RopeUtil extends ShapeUtil<IRopeShape> {
 							borderLeft: `8px solid ${redColor}`,
 							borderTop: '6px solid transparent',
 							borderBottom: '6px solid transparent',
-							filter: confirmed 
-								? 'drop-shadow(0 0 2px rgba(220, 38, 38, 0.5))' 
+							filter: confirmed
+								? 'drop-shadow(0 0 2px rgba(220, 38, 38, 0.5))'
 								: 'drop-shadow(0 0 1px rgba(220, 38, 38, 0.3))',
+							opacity,
+							transition: 'opacity 0.3s ease',
+							pointerEvents: confirmed ? 'auto' : 'none',
 						}}
 					/>
 					{/* Subtle highlight for depth */}
-					<div 
+					<div
 						className="rope-highlight"
 						style={{
 							position: 'absolute',
@@ -135,6 +152,8 @@ export class RopeUtil extends ShapeUtil<IRopeShape> {
 								transparent 100%
 							)`,
 							pointerEvents: 'none',
+							opacity,
+							transition: 'opacity 0.3s ease',
 						}}
 					/>
 					{/* Confirmation buttons - only show when not confirmed */}

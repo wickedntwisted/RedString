@@ -1,3 +1,36 @@
-.tl-background{
+.tl-background {
     background-image: url("/better-cork.webp");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+/* Enhance detective board aesthetic */
+.tl-container {
+    filter: contrast(1.05) brightness(0.98);
+}
+
+/* Style for connection lines/strings */
+.tl-shape[data-shape-type="arrow"] {
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+/* Add subtle texture overlay */
+.tl-background::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 2px,
+            rgba(0, 0, 0, 0.02) 2px,
+            rgba(0, 0, 0, 0.02) 4px
+        );
+    pointer-events: none;
+    z-index: 1;
 }

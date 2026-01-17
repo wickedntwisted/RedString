@@ -1,0 +1,123 @@
+.search-panel {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 320px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(139, 69, 19, 0.3);
+}
+
+.search-panel-header h2 {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  color: #8b4513;
+  font-weight: bold;
+}
+
+.search-panel-header p {
+  margin: 0 0 20px 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.upload-area {
+  border: 3px dashed #8b4513;
+  border-radius: 8px;
+  padding: 40px 20px;
+  text-align: center;
+  background: rgba(255, 248, 220, 0.3);
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.upload-area.drag-active {
+  border-color: #654321;
+  background: rgba(255, 248, 220, 0.6);
+  transform: scale(1.02);
+}
+
+.upload-area.searching {
+  border-color: #4169e1;
+  background: rgba(65, 105, 225, 0.1);
+}
+
+.upload-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.upload-area p {
+  margin: 8px 0;
+  color: #333;
+  font-weight: 500;
+}
+
+.upload-subtext {
+  color: #666 !important;
+  font-size: 12px !important;
+  font-weight: normal !important;
+}
+
+.upload-button {
+  display: inline-block;
+  padding: 10px 20px;
+  background: #8b4513;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+  margin-top: 8px;
+}
+
+.upload-button:hover {
+  background: #654321;
+}
+
+.searching-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(65, 105, 225, 0.2);
+  border-top-color: #4169e1;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.search-tips {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(139, 69, 19, 0.2);
+}
+
+.search-tips h3 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  color: #8b4513;
+}
+
+.search-tips ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #666;
+  font-size: 13px;
+}
+
+.search-tips li {
+  margin-bottom: 6px;
+}

@@ -19,7 +19,6 @@ export class ProfileCardTool extends StateNode {
 	override onPointerDown() {
 		const { currentPagePoint } = this.editor.inputs
 		this.editor.createShape<ProfileCardUtil>({
-            type = 'profile-card',
 			x: currentPagePoint.x - OFFSET,
 			y: currentPagePoint.y - OFFSET,
 		})

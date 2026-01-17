@@ -37,7 +37,7 @@ const customShapes = [
 ]
 
 const customTool = [
-  ProfileCardtool
+  ProfileCardTool
 ]
 
 const bg_image = new window.Image()
@@ -59,22 +59,8 @@ const customUiOverrides: TLUiOverrides = {
           editor.setCurrentTool('profile_card')
         },
       }
-	},
-}
-
-function drawLine(
-	ctx: CanvasRenderingContext2D,
-	x1: number,
-	y1: number,
-	x2: number,
-	y2: number,
-	width: number
-) {
-	ctx.beginPath()
-	ctx.moveTo(x1, y1)
-	ctx.lineTo(x2, y2)
-	ctx.lineWidth = width
-	ctx.stroke()
+	  }
+  }
 }
 
 
@@ -170,7 +156,65 @@ const customComponents: TLComponents = {
 	},
 }
 
+// Helper function to save image to Vultr DB via Flask server
+async function saveImageToVultr(imageUrl: string): Promise<number | null> {
+  try {
+    const response = await fetch('http://localhost:5000/api/upload-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image_url: imageUrl })
+    })
+    
+    const data = await response.json()
+    if (data.success) {
+      console.log('Image stored in Vultr DB with ID:', data.image_id)
+      return data.image_id
+    } else {
+      console.error('Error saving to Vultr DB:', data.error)
+      return null
+    }
+  } catch (error) {
+    console.error('Upload to Vultr DB failed:', error)
+    return null
+  }
+}
 
+// Component to track assets and save to Vultr DB
+function AssetTracker() {
+  const editor = useEditor()
+  const savedAssets = useRef<Set<string>>(new Set())
+  
+  useEffect(() => {
+    if (!editor) return
+
+    // Check for new assets periodically
+    const checkAssets = () => {
+      const assets = editor.getAssets()
+      assets.forEach(async (asset) => {
+        // Only process image assets that haven't been saved yet
+        if (asset.type === 'image' && asset.props.src && !savedAssets.current.has(asset.id)) {
+          const imageUrl = asset.props.src
+          // Check if it's a data URL (base64) or regular URL
+          if (imageUrl.startsWith('data:') || imageUrl.startsWith('http')) {
+            savedAssets.current.add(asset.id)
+            // Save to Vultr DB via Flask server
+            await saveImageToVultr(imageUrl)
+          }
+        }
+      })
+    }
+
+    // Check immediately and then periodically
+    checkAssets()
+    const interval = setInterval(checkAssets, 1000)
+
+    return () => {
+      clearInterval(interval)
+    }
+  }, [editor])
+
+  return null
+}
 
 export function DetectiveBoard() {
   const [editor, setEditor] = useState<Editor | null>(null)
@@ -251,15 +295,22 @@ export function DetectiveBoard() {
     e.stopPropagation()
   }
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
     
     const files = e.dataTransfer.files
     if (files.length > 0) {
-      Array.from(files).forEach((file) => {
-        if (file.type.startsWith('image/')) {
-          handleImageUpload(file)
+      Array.from(files).forEach(async (file) => {
+        if (!file.type.startsWith('image/')) return
+        
+        const reader = new FileReader()
+        reader.onload = async (event) => {
+          const imageUrl = event.target?.result as string
+          console.log('File dropped:', file.name)
+          
+          // Save to Vultr DB via Flask server when image is dropped
+          await saveImageToVultr(imageUrl)
         }
       })
     }
@@ -575,7 +626,9 @@ export function DetectiveBoard() {
           setEditor(editor)
           editor.updateInstanceState({ isGridMode: true })
         }}
-      />
+      >
+        <AssetTracker />
+      </Tldraw>
       <SearchPanel 
         onImageUpload={handleImageUpload}
         isSearching={isSearching}

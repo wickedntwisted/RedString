@@ -3,7 +3,6 @@ import os
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from reverse_img_api import reverse_image_search
 
 load_dotenv()
 
@@ -141,106 +140,6 @@ def list_images():
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-@app.route('/api/search-image/<int:image_id>', methods=['GET'])
-def search_image_by_id(image_id):
-    """
-    Perform reverse image search on an image stored in the database by its ID.
-    """
-    try:
-        # Get image URL from database
-        image_url = get_image_url(image_id)
-        
-        if not image_url:
-            return jsonify({
-                'success': False,
-                'error': 'Image not found'
-            }), 404
-        
-        # Perform reverse image search
-        search_result = reverse_image_search(image_url)
-        
-        return jsonify({
-            'success': search_result.get('success', False),
-            'image_id': image_id,
-            'image_url': image_url[:100] + '...' if len(image_url) > 100 else image_url,  # Truncate for display
-            'search_results': search_result.get('results', []),
-            'total_results': search_result.get('total_results', 0),
-            'error': search_result.get('error')
-        }), 200
-    
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-@app.route('/api/search-image-url', methods=['POST'])
-def search_image_by_url():
-    """
-    Perform reverse image search on a provided image URL.
-    """
-    try:
-        data = request.get_json()
-        image_url = data.get('image_url')
-        
-        if not image_url:
-            return jsonify({
-                'success': False,
-                'error': 'No image URL provided'
-            }), 400
-        
-        # Perform reverse image search
-        search_result = reverse_image_search(image_url)
-        
-        return jsonify({
-            'success': search_result.get('success', False),
-            'search_results': search_result.get('results', []),
-            'total_results': search_result.get('total_results', 0),
-            'error': search_result.get('error')
-        }), 200
-    
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-@app.route('/api/search-last-image', methods=['GET'])
-def search_last_image():
-    """
-    Perform reverse image search on the last (most recent) image in the database.
-    """
-    try:
-        # Get the last image from database
-        last_image = get_last_image()
-        
-        if not last_image:
-            return jsonify({
-                'success': False,
-                'error': 'No images found in database'
-            }), 404
-        
-        image_id = last_image['id']
-        image_url = last_image['url']
-        
-        # Perform reverse image search
-        search_result = reverse_image_search(image_url)
-        
-        return jsonify({
-            'success': search_result.get('success', False),
-            'image_id': image_id,
-            'image_url': image_url[:100] + '...' if len(image_url) > 100 else image_url,  # Truncate for display
-            'search_results': search_result.get('results', []),
-            'total_results': search_result.get('total_results', 0),
-            'error': search_result.get('error')
-        }), 200
-    
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

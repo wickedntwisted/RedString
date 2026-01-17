@@ -1,6 +1,23 @@
 import { useState, useCallback } from 'react'
 import * as React from 'react'
-import { Tldraw, Editor, createShapeId } from 'tldraw'
+import { custom_tools } from './CustomTools'
+import { 
+  Tldraw, 
+  Editor, 
+  createShapeId,
+  toRichText, 
+  TLTextShape, 
+  Box,
+  DefaultToolbar,
+  DefaultToolbarContent,
+  TLComponents,
+  TLUiAssetUrlOverrides,
+  TLUiOverrides,
+  TldrawUiMenuItem,
+  useEditor,
+  useIsToolSelected,
+  useTools,
+  useValue } from 'tldraw'
 import 'tldraw/tldraw.css'
 import "../board.css"
 import "../custom_shapes/shapes.css"
@@ -17,6 +34,40 @@ const customShapes = [
 	NoteCardUtil,
 	RopeUtil,
 ]
+
+const customTool = []
+
+
+const customUiOverrides: TLUiOverrides = {
+	tools: (editor: any, tools: any) => {
+		const whitelist = new Set(['select', 'hand', 'laser', 'eraser', 'draw', 'arrow', 'note', 'asset'])
+		return Object.fromEntries(
+			Object.entries(tools).filter(([id]) => whitelist.has(id))
+		)
+	},
+}
+
+function CustomToolbar() {
+	const tools = useTools()
+  console.log(" ALL TOOLS: ", tools)
+	return (
+		<DefaultToolbar>
+			<DefaultToolbarContent />
+		</DefaultToolbar>
+	)
+}
+
+const customAssetUrls: TLUiAssetUrlOverrides = {
+	icons: {
+		'tool-rope': '/tool-screenshot.svg',
+	},
+}
+
+const customComponents: TLComponents = {
+	Toolbar: CustomToolbar,
+}
+
+
 
 export function DetectiveBoard() {
   const [editor, setEditor] = useState<Editor | null>(null)
@@ -413,6 +464,10 @@ export function DetectiveBoard() {
     >
       <Tldraw 
         shapeUtils={customShapes}
+        tools={customTool}
+        overrides={customUiOverrides}
+        assetUrls={customAssetUrls}
+        components={customComponents}
         onMount={(editor) => setEditor(editor)}
       />
       <SearchPanel 

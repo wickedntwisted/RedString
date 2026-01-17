@@ -27,3 +27,6 @@ google-cloud-key.json
 *.json
 !package.json
 !tsconfig*.json
+
+
+.env

@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback,useRef, useLayoutEffect, useEffect } from 'react'
 import * as React from 'react'
-import { custom_tools } from './CustomTools'
+import {approximately } from 'tldraw'
 import { 
   Tldraw, 
   Editor, 
@@ -37,6 +37,8 @@ const customShapes = [
 
 const customTool = []
 
+const bg_image = new window.Image()
+bg_image.src = '/corkboard.webp'
 
 const customUiOverrides: TLUiOverrides = {
 	tools: (editor: any, tools: any) => {
@@ -46,6 +48,22 @@ const customUiOverrides: TLUiOverrides = {
 		)
 	},
 }
+
+function drawLine(
+	ctx: CanvasRenderingContext2D,
+	x1: number,
+	y1: number,
+	x2: number,
+	y2: number,
+	width: number
+) {
+	ctx.beginPath()
+	ctx.moveTo(x1, y1)
+	ctx.lineTo(x2, y2)
+	ctx.lineWidth = width
+	ctx.stroke()
+}
+
 
 function CustomToolbar() {
 	const tools = useTools()
@@ -65,6 +83,78 @@ const customAssetUrls: TLUiAssetUrlOverrides = {
 
 const customComponents: TLComponents = {
 	Toolbar: CustomToolbar,
+	Grid: ({ size, ...camera }) => {
+		const editor = useEditor()
+
+		// [2]
+		const screenBounds = useValue('screenBounds', () => editor.getViewportScreenBounds(), [])
+		const devicePixelRatio = useValue('dpr', () => editor.getInstanceState().devicePixelRatio, [])
+
+		const canvas = useRef<HTMLCanvasElement>(null)
+
+    useLayoutEffect(() => {
+      if (!canvas.current) return
+      
+      const canvasW = screenBounds.w * devicePixelRatio
+      const canvasH = screenBounds.h * devicePixelRatio
+      canvas.current.width = canvasW
+      canvas.current.height = canvasH
+      const ctx = canvas.current?.getContext('2d')
+      if (!ctx) return
+      ctx.clearRect(0, 0, canvasW, canvasH)
+      
+      // Check if image is loaded
+      if (!bg_image.complete) {
+        bg_image.onload = () => {
+          // Trigger re-render when image loads
+          canvas.current && drawTiledBackground()
+        }
+        return
+      }
+      
+      drawTiledBackground()
+      
+      function drawTiledBackground() {
+        if (!ctx || !bg_image.complete) return
+        
+        const pageViewportBounds = editor.getViewportPageBounds()
+        
+        // Calculate the tile size (use the grid size or image dimensions)
+        const tileWidth = 400
+        const tileHeight = 400
+        
+        // Determine the page-space bounds for tiling
+        const startPageX = Math.floor(pageViewportBounds.minX / tileWidth) * tileWidth
+        const startPageY = Math.floor(pageViewportBounds.minY / tileHeight) * tileHeight
+        const endPageX = Math.ceil(pageViewportBounds.maxX / tileWidth) * tileWidth
+        const endPageY = Math.ceil(pageViewportBounds.maxY / tileHeight) * tileHeight
+        
+        // Calculate number of tiles needed
+        const numCols = Math.ceil((endPageX - startPageX) / tileWidth)
+        const numRows = Math.ceil((endPageY - startPageY) / tileHeight)
+        
+        // Draw tiles
+        for (let row = 0; row < numRows; row++) {
+          for (let col = 0; col < numCols; col++) {
+            const pageX = startPageX + col * tileWidth
+            const pageY = startPageY + row * tileHeight
+            
+            // Convert page-space coordinates to canvas coordinates
+            const canvasX = (pageX + camera.x) * camera.z * devicePixelRatio
+            const canvasY = (pageY + camera.y) * camera.z * devicePixelRatio
+            const canvasTileW = tileWidth * camera.z * devicePixelRatio
+            const canvasTileH = tileHeight * camera.z * devicePixelRatio
+            
+            // Draw the tiled image
+            ctx.drawImage(bg_image, canvasX, canvasY, canvasTileW, canvasTileH)
+          }
+        }
+      }
+    }, [screenBounds, camera, size, devicePixelRatio, editor, bg_image])
+
+		// [7]
+		return <canvas className="tl-grid" ref={canvas} />
+	},
 }
 
 
@@ -468,7 +558,10 @@ export function DetectiveBoard() {
         overrides={customUiOverrides}
         assetUrls={customAssetUrls}
         components={customComponents}
-        onMount={(editor) => setEditor(editor)}
+        onMount={(editor) => {
+          setEditor(editor)
+          editor.updateInstanceState({ isGridMode: true })
+        }}
       />
       <SearchPanel 
         onImageUpload={handleImageUpload}

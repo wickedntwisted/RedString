@@ -7,7 +7,6 @@ import {
 	T,
 	TLBaseShape,
 	TLResizeInfo,
-	Tldraw,
 	resizeBox,
 } from 'tldraw'
 import 'tldraw/tldraw.css'
@@ -56,4 +55,17 @@ export class MyShapeUtil extends ShapeUtil<ICustomShape> {
 			isFilled: true,
 		})
 	}
+
+	override onResize(shape: any, info: TLResizeInfo<any>) {
+		return resizeBox(shape, info)
+	}
+
+	component(shape: ICustomShape) {
+		return <HTMLContainer style={{ backgroundColor: '#efefef' }}>{shape.props.text}</HTMLContainer>
+	}
+
+	indicator(shape: ICustomShape) {
+		return <rect width={shape.props.w} height={shape.props.h} />
+	}
+
 }

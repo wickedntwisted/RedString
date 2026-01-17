@@ -1,50 +1,36 @@
-# React + TypeScript + Vite
+# Detective Board
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+An interactive detective board for visual investigations. Upload photos and organize findings on a draggable canvas.
 
-Currently, two official plugins are available:
+## Key Files
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Core Application
+- **`src/App.tsx`** - Root component, renders DetectiveBoard
+- **`src/main.tsx`** - Entry point, mounts React app
 
-## Expanding the ESLint configuration
+### Main Components
+- **`src/components/DetectiveBoard.tsx`** - Main board component using tldraw canvas. Handles:
+  - Image uploads and drag-and-drop
+  - Reverse image search (currently mocked)
+  - Creating shapes on the board
+  - Rope confirmation/rejection logic
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+- **`src/components/SearchPanel.tsx`** - Upload panel overlay for adding images to the board
 
-- Configure the top-level `parserOptions` property like this:
+### Custom Shapes
+All extend tldraw's ShapeUtil for custom canvas elements:
+- **`src/custom_shapes/ProfileCard.tsx`** - Displays person info (name, title, company, etc.)
+- **`src/custom_shapes/PhotoPin.tsx`** - Pinned image on the board
+- **`src/custom_shapes/NoteCard.tsx`** - Sticky notes for annotations
+- **`src/custom_shapes/rope.tsx`** - Visual connections between shapes (red=pending, green=confirmed)
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+### Styles
+- **`src/board.css`** - Board background and styling
+- **`src/custom_shapes/shapes.css`** - Custom shape styles
+- **`src/components/SearchPanel.css`** - Search panel overlay styles
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
-
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
-
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
+## Running
+```bash
+npm install
+npm run dev
 ```

@@ -55,11 +55,20 @@ export function SearchPanel({ onImageUpload, isSearching }: SearchPanelProps) {
             <p>Searching for profiles...</p>
           </div>
         ) : (
-          <>
-            <div className="upload-icon">📷</div>
-            <p>Drag & drop an image here</p>
-            <p className="upload-subtext">or</p>
-            <label htmlFor="file-input" className="upload-button">
+            <>
+            <img
+              src="/public/camera-265.png"
+              alt="Upload Icon"
+              className="upload-icon"
+              style={{ maxWidth: '30%', maxHeight: 'auto', objectFit: 'contain' }}
+            />
+            <p style={{ fontSize: '0.9rem', textAlign: 'center' }}>Drag & drop an image here</p>
+            <p className="upload-subtext" style={{ fontSize: '0.8rem', textAlign: 'center' }}>or</p>
+            <label
+              htmlFor="file-input"
+              className="upload-button"
+              style={{ fontSize: '0.9rem', padding: '0.5rem 1rem', textAlign: 'center' }}
+            >
               Browse Files
             </label>
             <input
@@ -69,7 +78,7 @@ export function SearchPanel({ onImageUpload, isSearching }: SearchPanelProps) {
               onChange={handleFileInput}
               style={{ display: 'none' }}
             />
-          </>
+            </>
         )}
       </div>
 

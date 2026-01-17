@@ -46,14 +46,14 @@ export class RopeUtil extends ShapeUtil<IRopeShape> {
 	}
 
 	override canResize() {
-		return true
+		return false
 	}
 
 	override isAspectRatioLocked() {
 		return false
 	}
 
-	override hideSelectionBoundingBox() {
+	override hideSelectionBoundsBg() {
 		return true
 	}
 
@@ -63,6 +63,10 @@ export class RopeUtil extends ShapeUtil<IRopeShape> {
 
 	override hideResizeHandles() {
 		return true
+	}
+
+	override canSelect() {
+		return false
 	}
 
 	getGeometry(shape: IRopeShape): Geometry2d {

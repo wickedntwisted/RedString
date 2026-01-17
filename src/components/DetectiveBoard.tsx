@@ -92,6 +92,89 @@ export function DetectiveBoard() {
     }
   }, [handleRopeConfirm, handleRopeDiscard])
 
+  // Update rope positions when connected shapes move
+  React.useEffect(() => {
+    if (!editor) return
+
+    const updateRopePosition = (ropeShape: any, fromShape: any, toShape: any) => {
+      // Calculate pin positions based on shape type
+      let fromPinX: number, fromPinY: number, toPinX: number, toPinY: number
+
+      // For photo-pin shapes
+      if (fromShape.type === 'photo-pin') {
+        const photoPinWidth = fromShape.props.w
+        fromPinX = fromShape.x + photoPinWidth / 2
+        fromPinY = fromShape.y + 12
+      } else if (fromShape.type === 'profile-card') {
+        const profileCardWidth = fromShape.props.w
+        fromPinX = fromShape.x + profileCardWidth / 2
+        fromPinY = fromShape.y + 18
+      } else {
+        return // Unknown shape type
+      }
+
+      // For destination shape
+      if (toShape.type === 'photo-pin') {
+        const photoPinWidth = toShape.props.w
+        toPinX = toShape.x + photoPinWidth / 2
+        toPinY = toShape.y + 12
+      } else if (toShape.type === 'profile-card') {
+        const profileCardWidth = toShape.props.w
+        toPinX = toShape.x + profileCardWidth / 2
+        toPinY = toShape.y + 18
+      } else {
+        return // Unknown shape type
+      }
+
+      // Calculate new angle and distance
+      const dx = toPinX - fromPinX
+      const dy = toPinY - fromPinY
+      const angle = Math.atan2(dy, dx)
+      const ropeLength = Math.sqrt(dx * dx + dy * dy)
+
+      // Update rope
+      editor.updateShape({
+        id: ropeShape.id,
+        type: 'rope',
+        x: fromPinX,
+        y: fromPinY,
+        rotation: angle,
+        props: {
+          ...ropeShape.props,
+          w: ropeLength,
+        },
+      })
+    }
+
+    const handleShapeChange = () => {
+      // Get all ropes
+      const allShapes = editor.getCurrentPageShapes()
+      const ropes = allShapes.filter((shape: any) => shape.type === 'rope')
+
+      // Update each rope
+      ropes.forEach((rope: any) => {
+        const fromShapeId = rope.props.fromShapeId
+        const toShapeId = rope.props.toShapeId
+
+        if (fromShapeId && toShapeId) {
+          const fromShape = editor.getShape(fromShapeId as any)
+          const toShape = editor.getShape(toShapeId as any)
+
+          if (fromShape && toShape) {
+            updateRopePosition(rope, fromShape, toShape)
+          }
+        }
+      })
+    }
+
+    // Listen to shape changes
+    const dispose = editor.store.listen(handleShapeChange, { scope: 'document' })
+
+    return () => {
+      dispose()
+    }
+  }, [editor])
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()

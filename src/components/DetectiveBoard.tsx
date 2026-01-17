@@ -47,9 +47,6 @@ const customUiOverrides: TLUiOverrides = {
 	tools: (editor: any, tools: any) => {
 		const whitelist = new Set(['select', 'hand', 'laser', 'eraser', 'draw', 'arrow', 'note', 'asset'])
 		return {
-			...Object.fromEntries(
-				Object.entries(tools).filter(([id]) => whitelist.has(id))
-			),
 			profile_card: {
 				id: 'profile_card',
         label: 'Profile Card',
@@ -58,7 +55,10 @@ const customUiOverrides: TLUiOverrides = {
         onSelect() {
           editor.setCurrentTool('profile_card')
         },
-      }
+      },
+			...Object.fromEntries(
+				Object.entries(tools).filter(([id]) => whitelist.has(id))
+			)
 	  }
   }
 }
@@ -66,9 +66,10 @@ const customUiOverrides: TLUiOverrides = {
 
 function CustomToolbar() {
 	const tools = useTools()
-  console.log(" ALL TOOLS: ", tools)
+  const isProfileSelected = useIsToolSelected(tools['profile_card'])
 	return (
 		<DefaultToolbar>
+      <TldrawUiMenuItem {...tools['profile_card']} isSelected={isProfileSelected} />
 			<DefaultToolbarContent />
 		</DefaultToolbar>
 	)
@@ -76,7 +77,7 @@ function CustomToolbar() {
 
 const customAssetUrls: TLUiAssetUrlOverrides = {
 	icons: {
-		'tool-profile': '/tool-profile.svg',
+		'tool-profile': '/profile.svg',
 	},
 }
 
@@ -167,7 +168,6 @@ async function saveImageToVultr(imageUrl: string): Promise<number | null> {
     
     const data = await response.json()
     if (data.success) {
-      console.log('Image stored in Vultr DB with ID:', data.image_id)
       return data.image_id
     } else {
       console.error('Error saving to Vultr DB:', data.error)
@@ -307,9 +307,7 @@ export function DetectiveBoard() {
         const reader = new FileReader()
         reader.onload = async (event) => {
           const imageUrl = event.target?.result as string
-          console.log('File dropped:', file.name)
           
-          // Save to Vultr DB via Flask server when image is dropped
           await saveImageToVultr(imageUrl)
         }
       })
@@ -319,7 +317,6 @@ export function DetectiveBoard() {
   // Mock function for reverse image search - replace with actual API call
   const performReverseImageSearch = async (imageFile: File): Promise<any[]> => {
     // TODO: Replace this with actual reverse image search API
-    // Examples: Google Vision API, TinEye API, PimEyes, etc.
     
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 2000))

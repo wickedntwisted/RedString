@@ -23,6 +23,7 @@ import "../board.css"
 import "../custom_shapes/shapes.css"
 import { SearchPanel } from './SearchPanel'
 import { ProfileCardUtil } from '../custom_shapes/ProfileCard'
+import { ProfileCardTool } from '../custom_tools/ProfileCardTool'
 import { PhotoPinUtil } from '../custom_shapes/PhotoPin'
 import { NoteCardUtil } from '../custom_shapes/NoteCard'
 import { RopeUtil } from '../custom_shapes/rope'
@@ -35,7 +36,9 @@ const customShapes = [
 	RopeUtil,
 ]
 
-const customTool = []
+const customTool = [
+  ProfileCardtool
+]
 
 const bg_image = new window.Image()
 bg_image.src = '/corkboard.webp'
@@ -43,9 +46,19 @@ bg_image.src = '/corkboard.webp'
 const customUiOverrides: TLUiOverrides = {
 	tools: (editor: any, tools: any) => {
 		const whitelist = new Set(['select', 'hand', 'laser', 'eraser', 'draw', 'arrow', 'note', 'asset'])
-		return Object.fromEntries(
-			Object.entries(tools).filter(([id]) => whitelist.has(id))
-		)
+		return {
+			...Object.fromEntries(
+				Object.entries(tools).filter(([id]) => whitelist.has(id))
+			),
+			profile_card: {
+				id: 'profile_card',
+        label: 'Profile Card',
+        icon: 'tool-profile',
+        kbd: 'p',
+        onSelect() {
+          editor.setCurrentTool('profile_card')
+        },
+      }
 	},
 }
 
@@ -77,7 +90,7 @@ function CustomToolbar() {
 
 const customAssetUrls: TLUiAssetUrlOverrides = {
 	icons: {
-		'tool-rope': '/tool-screenshot.svg',
+		'tool-profile': '/tool-profile.svg',
 	},
 }
 

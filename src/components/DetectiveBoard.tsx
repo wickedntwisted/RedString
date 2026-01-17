@@ -107,6 +107,15 @@ export function DetectiveBoard() {
           y: 100,
           props: { richText: toRichText('Add any node to start the search!') },
         })
+
+        editor.sideEffects.registerAfterCreateHandler('shape', (shape) => {
+          console.log("NEW SHAPE:", shape.id)
+          if (shape.type == 'rope_shape'){
+            
+          }
+
+          console.log(shape)
+        })
       }}
       >
         </Tldraw> /

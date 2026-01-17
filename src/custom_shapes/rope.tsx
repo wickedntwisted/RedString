@@ -1,27 +1,53 @@
-import { StateNode, TLArrowShape } from 'tldraw'
-import { RopeShape } from './rope_shape'
+import { StateNode, TLShapeId, createShapeId } from 'tldraw'
 import 'tldraw/tldraw.css'
 
-const OFFSET = 12
 
 export class RopeTool extends StateNode {
 	static override id = 'rope'
 
-	// [a]
+	startPagePoint = {x : 0, y : 0}
+	ropeId: TLShapeId | undefined = undefined
+
 	override onEnter() {
 		this.editor.setCursor({ type: 'cross', rotation: 0 })
+		this.startPagePoint = {x : 0, y : 0}
+		this.ropeId = undefined
 	}
 
-	// [b]
 	override onPointerDown() {
-		console.log("ROPE POINTER DOWN")
-		const { currentPagePoint } = this.editor.inputs
-		this.editor.createShape<RopeShape>({
-			start: { x: currentPagePoint.x, y: currentPagePoint.y+10 },
-			end: { x: currentPagePoint.x, y: currentPagePoint.y+10 },
+		// Copy the current page point so it does not reference the point object directly
+		const { x, y } = this.editor.inputs.currentPagePoint
+		this.startPagePoint = { x, y }
+		console.log("startPagePoint:", this.startPagePoint)
+		this.ropeId = createShapeId();		
+		this.editor.createShape({
+			id: this.ropeId,
+			type: 'rope_shape',
+			x: this.startPagePoint.x,
+			y: this.startPagePoint.y,
+			props: {
+				start: { x: 0, y: 0 },
+				end: { x: 1, y: 1 },
+			},
 		})
 	}
-	private complete() {
-		this.parent.transition('select', {})
+	
+	override onPointerMove() {
+		if (!this.ropeId) return 
+		const currentpoint = this.editor.inputs.currentPagePoint
+		console.log("current point: ", currentpoint, " - starting point: ", this.startPagePoint)
+		this.editor.updateShape({
+			id: this.ropeId,
+			type: 'rope_shape',
+			props: {
+				end: { 
+					x: Math.abs(currentpoint.x - this.startPagePoint.x) , 
+					y: Math.abs(currentpoint.y - this.startPagePoint.y) 
+				},
+			},
+		})
+	}
+	override onPointerUp() {
+		this.ropeId = undefined;
 	}
 }

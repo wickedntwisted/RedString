@@ -80,6 +80,6 @@ export class NoteCardUtil extends ShapeUtil<INoteCard> {
 	}
 
 	override indicator(shape: INoteCard) {
-		return <rect width={shape.props.w} height={shape.props.h} />
+		return null
 	}
 }

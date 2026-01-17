@@ -118,6 +118,6 @@ export class ProfileCardUtil extends ShapeUtil<IProfileCard> {
 	}
 
 	override indicator(shape: IProfileCard) {
-		return <rect width={shape.props.w} height={shape.props.h} />
+		return null
 	}
 }

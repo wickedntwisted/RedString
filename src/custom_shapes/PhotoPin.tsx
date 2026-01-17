@@ -84,6 +84,6 @@ export class PhotoPinUtil extends ShapeUtil<IPhotoPin> {
 	}
 
 	override indicator(shape: IPhotoPin) {
-		return <rect width={shape.props.w} height={shape.props.h} />
+		return null
 	}
 }

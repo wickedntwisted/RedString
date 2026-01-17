@@ -65,9 +65,6 @@ export class RopeUtil extends ShapeUtil<IRopeShape> {
 		return true
 	}
 
-	override canSelect() {
-		return false
-	}
 
 	getGeometry(shape: IRopeShape): Geometry2d {
 		return new Rectangle2d({
@@ -266,6 +263,6 @@ export class RopeUtil extends ShapeUtil<IRopeShape> {
 	}
 
 	override indicator(shape: IRopeShape) {
-		return <rect width={shape.props.w} height={shape.props.h || shape.props.thickness || 3} />
+		return null
 	}
 }

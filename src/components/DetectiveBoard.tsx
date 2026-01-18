@@ -25,7 +25,9 @@ import { SearchPanel } from './SearchPanel'
 import { ProfileCardUtil } from '../custom_shapes/ProfileCard'
 import { ProfileCardTool } from '../custom_tools/ProfileCardTool'
 import { PhotoPinUtil } from '../custom_shapes/PhotoPin'
+import { PhotoPinTool } from '../custom_tools/PhotoPinTool'
 import { NoteCardUtil } from '../custom_shapes/NoteCard'
+import { NoteCardTool } from '../custom_tools/NoteCardTool'
 import { RopeUtil } from '../custom_shapes/rope'
 
 // Custom shapes configuration - must be an array
@@ -37,7 +39,9 @@ const customShapes = [
 ]
 
 const customTool = [
-  ProfileCardTool
+  ProfileCardTool,
+  PhotoPinTool,
+  NoteCardTool
 ]
 
 const bg_image = new window.Image()
@@ -47,9 +51,6 @@ const customUiOverrides: TLUiOverrides = {
 	tools: (editor: any, tools: any) => {
 		const whitelist = new Set(['select', 'hand', 'laser', 'eraser', 'draw', 'arrow', 'note', 'asset'])
 		return {
-			...Object.fromEntries(
-				Object.entries(tools).filter(([id]) => whitelist.has(id))
-			),
 			profile_card: {
 				id: 'profile_card',
         label: 'Profile Card',
@@ -58,7 +59,28 @@ const customUiOverrides: TLUiOverrides = {
         onSelect() {
           editor.setCurrentTool('profile_card')
         },
-      }
+      },
+			photo_pin: {
+				id: 'photo_pin',
+        label: 'Photo Pin',
+        icon: 'tool-photo',
+        kbd: 'l',
+        onSelect() {
+          editor.setCurrentTool('photo_pin')
+        },
+      },
+			note_card: {
+				id: 'note_card',
+        label: 'Note Tool',
+        icon: 'tool-note',
+        kbd: 'l',
+        onSelect() {
+          editor.setCurrentTool('note_card')
+        },
+      },
+			...Object.fromEntries(
+				Object.entries(tools).filter(([id]) => whitelist.has(id))
+			)
 	  }
   }
 }
@@ -66,9 +88,11 @@ const customUiOverrides: TLUiOverrides = {
 
 function CustomToolbar() {
 	const tools = useTools()
-  console.log(" ALL TOOLS: ", tools)
 	return (
 		<DefaultToolbar>
+      <TldrawUiMenuItem {...tools['profile_card']} isSelected={useIsToolSelected(tools['profile_card'])} />
+      <TldrawUiMenuItem {...tools['photo_pin']} isSelected={useIsToolSelected(tools['photo_pin'])} />
+      <TldrawUiMenuItem {...tools['note_card']} isSelected={useIsToolSelected(tools['note_card'])} />
 			<DefaultToolbarContent />
 		</DefaultToolbar>
 	)
@@ -76,7 +100,9 @@ function CustomToolbar() {
 
 const customAssetUrls: TLUiAssetUrlOverrides = {
 	icons: {
-		'tool-profile': '/tool-profile.svg',
+		'tool-profile': '/profile.svg',
+		'tool-photo': '/photo_pin.svg',
+		'tool-note': '/note.svg',
 	},
 }
 
@@ -311,7 +337,6 @@ export function DetectiveBoard() {
   // Mock function for reverse image search - replace with actual API call
   const performReverseImageSearch = async (imageFile: File): Promise<any[]> => {
     // TODO: Replace this with actual reverse image search API
-    // Examples: Google Vision API, TinEye API, PimEyes, etc.
     
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 2000))

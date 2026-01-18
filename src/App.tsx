@@ -5,7 +5,6 @@ import { useEffect } from 'react'
 
 function App() {
   useEffect(() => {
-    // Give time for Tldraw to render watermark, then remove it
     setTimeout(() => {
       const watermarks = document.querySelectorAll('[class*="tl-watermark"]')
       watermarks.forEach((watermark) => watermark.remove())

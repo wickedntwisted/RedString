@@ -5,12 +5,12 @@ import {
     toRichText
 } from 'tldraw'
 import 'tldraw/tldraw.css'
-import { ProfileCardUtil } from '../custom_shapes/ProfileCard'
+import { PhotoPinUtil } from '../custom_shapes/PhotoPin'
 
 const OFFSET = 12
 
-export class ProfileCardTool extends StateNode {
-	static override id = 'profile_card'
+export class PhotoPinTool extends StateNode {
+	static override id = 'photo_pin'
 
 	override onEnter() {
         console.log("ENTERED")
@@ -19,8 +19,8 @@ export class ProfileCardTool extends StateNode {
 
 	override onPointerDown() {
 		const { currentPagePoint } = this.editor.inputs
-		this.editor.createShape<ProfileCardUtil>({
-			type: 'profile-card',
+		this.editor.createShape<PhotoPinTool>({
+			type: 'photo-pin',
 			x: currentPagePoint.x - OFFSET,
 			y: currentPagePoint.y - OFFSET,
 		})

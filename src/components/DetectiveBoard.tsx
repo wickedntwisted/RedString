@@ -417,13 +417,76 @@ export function DetectiveBoard() {
     }
   }
 
+  // Helper function to check if a position collides with existing shapes
+  const findNonCollidingPosition = useCallback((
+    editor: Editor,
+    startX: number,
+    startY: number,
+    width: number,
+    height: number,
+    padding: number = 50
+  ): { x: number; y: number } => {
+    const allShapes = editor.getCurrentPageShapes()
+
+    // Function to check if a rectangle collides with any existing shape
+    const checkCollision = (x: number, y: number): boolean => {
+      for (const shape of allShapes) {
+        const bounds = editor.getShapePageBounds(shape.id)
+        if (!bounds) continue
+
+        // Check if rectangles overlap (with padding)
+        const hasOverlap = !(
+          x + width + padding < bounds.minX ||
+          x - padding > bounds.maxX ||
+          y + height + padding < bounds.minY ||
+          y - padding > bounds.maxY
+        )
+
+        if (hasOverlap) return true
+      }
+      return false
+    }
+
+    // Try the initial position
+    if (!checkCollision(startX, startY)) {
+      return { x: startX, y: startY }
+    }
+
+    // Try offsets in a spiral pattern
+    const offsets = [
+      { dx: 400, dy: 0 },    // Right
+      { dx: 0, dy: 350 },    // Down
+      { dx: -400, dy: 0 },   // Left
+      { dx: 0, dy: -350 },   // Up
+      { dx: 400, dy: 350 },  // Diagonal bottom-right
+      { dx: -400, dy: 350 }, // Diagonal bottom-left
+      { dx: 400, dy: -350 }, // Diagonal top-right
+      { dx: -400, dy: -350 },// Diagonal top-left
+      { dx: 800, dy: 0 },    // Far right
+      { dx: 0, dy: 700 },    // Far down
+      { dx: -800, dy: 0 },   // Far left
+      { dx: 0, dy: -700 },   // Far up
+    ]
+
+    for (const offset of offsets) {
+      const testX = startX + offset.dx
+      const testY = startY + offset.dy
+      if (!checkCollision(testX, testY)) {
+        return { x: testX, y: testY }
+      }
+    }
+
+    // If all else fails, place it far to the right
+    return { x: startX + 1200, y: startY }
+  }, [])
+
   // Mock function for reverse image search - replace with actual API call
   const performReverseImageSearch = async (imageFile: File): Promise<any[]> => {
     // TODO: Replace this with actual reverse image search API
-    
+
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 2000))
-    
+
     // Mock data - replace with actual API response
     return [
       {
@@ -450,7 +513,35 @@ export function DetectiveBoard() {
     if (!editor) return
 
     setIsSearching(true)
-    
+
+    // Calculate position for new photo pin (outside try so it's available in catch)
+    const allShapes = editor.getCurrentPageShapes()
+    const existingPhotoPins = allShapes.filter((shape: any) => shape.type === 'photo-pin')
+
+    let idealPhotoPinX = 300
+    let idealPhotoPinY = 300
+
+    if (existingPhotoPins.length > 0) {
+      // Offset from the last photo pin
+      const lastPin = existingPhotoPins[existingPhotoPins.length - 1]
+      idealPhotoPinX = lastPin.x + 400 // Horizontal offset
+      idealPhotoPinY = lastPin.y + 50  // Slight vertical offset
+    }
+
+    // Find non-colliding position for photo pin
+    const photoPinSize = 200
+    const photoPinPosition = findNonCollidingPosition(
+      editor,
+      idealPhotoPinX,
+      idealPhotoPinY,
+      photoPinSize,
+      photoPinSize,
+      80 // padding
+    )
+
+    const photoPinX = photoPinPosition.x
+    const photoPinY = photoPinPosition.y
+
     try {
       // Read image as data URL
       const imageUrl = await new Promise<string>((resolve) => {
@@ -459,18 +550,16 @@ export function DetectiveBoard() {
         reader.readAsDataURL(file)
       })
 
-      // Add photo pin to board - place it more to the left side
+      // Add photo pin to board
       const photoPinId = createShapeId()
-      const photoPinX = 300
-      const photoPinY = 300
       editor.createShape({
         id: photoPinId,
         type: 'photo-pin',
         x: photoPinX,
         y: photoPinY,
         props: {
-          w: 200,
-          h: 200,
+          w: photoPinSize,
+          h: photoPinSize,
           imageUrl,
           caption: file.name,
         },
@@ -482,13 +571,17 @@ export function DetectiveBoard() {
       // Store profile shapes for creating connections
       const profileShapes: Array<{ id: string; x: number; y: number; profile: any }> = []
 
-      // Add profile cards in a better layout - spread them out more
-      // Arrange in a fan pattern with more spacing
+      // Profile card dimensions (declared early for use in all scopes)
+      const profileCardWidth = 280
+      const profileCardHeight = 200
+      const cardPadding = 80 // Healthy padding between cards
+
+      // Calculate base position for profile cards relative to photo pin
       const horizontalSpacing = 380
       const verticalSpacing = 320
-      const startX = photoPinX + 550 // Much more distance from photo
-      const startY = 100
-      
+      const baseStartX = photoPinX + 550 // Distance from photo pin
+      const baseStartY = photoPinY - 200 // Position relative to photo pin Y
+
       // Arrange in a grid with max 2 columns to spread them out more
       const cols = Math.min(2, searchResults.length)
 
@@ -496,17 +589,29 @@ export function DetectiveBoard() {
         const profileId = createShapeId()
         const col = index % cols
         const row = Math.floor(index / cols)
-        const profileX = startX + col * horizontalSpacing
-        const profileY = startY + row * verticalSpacing
+
+        // Calculate ideal position
+        const idealX = baseStartX + col * horizontalSpacing
+        const idealY = baseStartY + row * verticalSpacing
+
+        // Find non-colliding position with padding
+        const position = findNonCollidingPosition(
+          editor,
+          idealX,
+          idealY,
+          profileCardWidth,
+          profileCardHeight,
+          cardPadding
+        )
 
         editor.createShape({
           id: profileId,
           type: 'profile-card',
-          x: profileX,
-          y: profileY,
+          x: position.x,
+          y: position.y,
           props: {
-            w: 280,
-            h: 200,
+            w: profileCardWidth,
+            h: profileCardHeight,
             name: profile.name,
             title: profile.title,
             company: profile.company,
@@ -517,19 +622,16 @@ export function DetectiveBoard() {
           },
         })
 
-        profileShapes.push({ id: profileId, x: profileX, y: profileY, profile })
+        profileShapes.push({ id: profileId, x: position.x, y: position.y, profile })
 
         // Create red rope connection from photo pin to profile pin
-        const photoPinWidth = 200
-        const profileCardWidth = 280
-
         // Calculate pin positions (pins are centered at top of each card)
         // Photo pin: center at top + 12px (4px offset + 16px height / 2)
         // Profile card pin: center at top + 18px (8px offset + 20px height / 2)
-        const photoPinCenterX = photoPinX + photoPinWidth / 2
+        const photoPinCenterX = photoPinX + photoPinSize / 2
         const photoPinCenterY = photoPinY + 12
-        const profilePinCenterX = profileX + profileCardWidth / 2
-        const profilePinCenterY = profileY + 18
+        const profilePinCenterX = position.x + profileCardWidth / 2
+        const profilePinCenterY = position.y + 18
 
         // Calculate angle and distance between pins
         const dx = profilePinCenterX - photoPinCenterX
@@ -572,7 +674,6 @@ export function DetectiveBoard() {
           
           if (hasCommonCompany || hasCommonLocation || hasCommonDomain) {
             const ropeId = createShapeId()
-            const profileCardWidth = 280
 
             // Calculate pin positions (pins are centered at top of cards)
             // Profile card pin: center at top + 18px (8px offset + 20px height / 2)
@@ -610,13 +711,13 @@ export function DetectiveBoard() {
         }
       }
 
-      // Add a note card with search summary
+      // Add a note card with search summary - position close to photo pin
       const noteId = createShapeId()
       editor.createShape({
         id: noteId,
         type: 'note-card',
-        x: 200,
-        y: 500,
+        x: photoPinX - 120,
+        y: photoPinY + 250,
         props: {
           w: 200,
           h: 150,
@@ -625,16 +726,50 @@ export function DetectiveBoard() {
         },
       })
 
+      // Auto-zoom to fit all elements on screen
+      setTimeout(() => {
+        const allShapes = editor.getCurrentPageShapes()
+        if (allShapes.length > 0) {
+          // Calculate bounding box of all shapes
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+
+          allShapes.forEach((shape: any) => {
+            const bounds = editor.getShapePageBounds(shape.id)
+            if (bounds) {
+              minX = Math.min(minX, bounds.minX)
+              minY = Math.min(minY, bounds.minY)
+              maxX = Math.max(maxX, bounds.maxX)
+              maxY = Math.max(maxY, bounds.maxY)
+            }
+          })
+
+          // Add padding
+          const padding = 100
+          const contentBox = new Box(
+            minX - padding,
+            minY - padding,
+            maxX - minX + padding * 2,
+            maxY - minY + padding * 2
+          )
+
+          // Zoom to fit with animation
+          editor.zoomToBounds(contentBox, {
+            animation: { duration: 500 },
+            targetZoom: Math.min(editor.getZoomLevel(), 1) // Don't zoom in more than 100%
+          })
+        }
+      }, 100) // Small delay to ensure all shapes are rendered
+
     } catch (error) {
       console.error('Error processing image:', error)
-      
-      // Add error note
+
+      // Add error note - position close to photo pin
       const errorNoteId = createShapeId()
       editor.createShape({
         id: errorNoteId,
         type: 'note-card',
-        x: 200,
-        y: 200,
+        x: photoPinX - 120,
+        y: photoPinY + 250,
         props: {
           w: 200,
           h: 120,
@@ -645,7 +780,7 @@ export function DetectiveBoard() {
     } finally {
       setIsSearching(false)
     }
-  }, [editor])
+  }, [editor, findNonCollidingPosition])
 
   return (
     <div

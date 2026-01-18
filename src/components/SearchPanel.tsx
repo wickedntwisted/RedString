@@ -9,7 +9,6 @@ interface SearchPanelProps {
 export function SearchPanel({ onImageUpload, isSearching }: SearchPanelProps) {
   const [dragActive, setDragActive] = useState(false)
   const [isExpanded, setIsExpanded] = useState(true)
-  const [hasUploaded, setHasUploaded] = useState(false)
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
@@ -28,20 +27,14 @@ export function SearchPanel({ onImageUpload, isSearching }: SearchPanelProps) {
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       onImageUpload(e.dataTransfer.files[0])
-      if (!hasUploaded) {
-        setHasUploaded(true)
-        setIsExpanded(false)
-      }
+      setIsExpanded(false)
     }
   }
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       onImageUpload(e.target.files[0])
-      if (!hasUploaded) {
-        setHasUploaded(true)
-        setIsExpanded(false)
-      }
+      setIsExpanded(false)
     }
   }
 

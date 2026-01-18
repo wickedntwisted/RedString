@@ -1,4 +1,5 @@
 import boto3
+import asyncio
 import os
 import json
 from dotenv import load_dotenv
@@ -6,6 +7,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from serpapi import GoogleSearch
+from linkedin_service import scrape_user, scrape_company
 
 load_dotenv()
 
@@ -33,6 +35,10 @@ CORS(app)
 
 def build_image_url(filename: str) -> str:
     return f"https://{hostname}/{bucket_name}/{filename}"
+
+@app.route("/", methods=['GET'])
+def root():
+    return "HELLO I LOVE U"
 
 @app.route('/api/upload-image', methods=['POST'])
 def upload_image():
@@ -94,6 +100,30 @@ def get_image(filename):
         return jsonify({'success': True, 'url': file_url}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/linkedin_scrape_user/<user>', methods=['GET'])
+def linkedin_scrape_user(user : str):
+    try:
+        data = asyncio.run(scrape_user(user))
+        return jsonify(json.loads(data)), 200
+    except Exception as e:
+        print(f"ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/linkedin_scrape_company/<company>', methods=['GET'])
+def linkedin_scrape_company(company : str):
+    try:
+        data = asyncio.run(scrape_company(company))
+        return jsonify(json.loads(data)), 200
+    except Exception as e:
+        print(f"ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+    
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

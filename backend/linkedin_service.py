@@ -91,6 +91,6 @@ async def scrape_company(company : str):
 
 #response = asyncio.run(scrape_company("rogers-communications"))
 #print(response)
-response = asyncio.run(scrape_user("dayuhechen"))
-print(response)
+#response = asyncio.run(scrape_user("dayuhechen"))
+#print(response)
 #asyncio.run(scrape_user("dayuhechen"))

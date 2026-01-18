@@ -655,10 +655,11 @@ export function DetectiveBoard() {
       // Create this BEFORE profile cards so they avoid it
       const noteCardWidth = 200
       const noteCardHeight = 150
-      const noteMargin = 20 // Margin between photo pin and note card
+      const noteMargin = 12 // Slim margin between photo pin and note card
 
-      // Calculate position: centered under the photo pin
-      const noteX = photoPinX
+      // Calculate position: centered under the photo pin with a few pixels to the left
+      const leftOffset = 10 // Slight offset to the left
+      const noteX = photoPinX + (photoPinSize - noteCardWidth) / 2 - leftOffset
       const noteY = photoPinY + photoPinSize + noteMargin
       const noteId = createShapeId()
       
@@ -862,64 +863,20 @@ export function DetectiveBoard() {
           })
         }
       }, 100) // Small delay to ensure all shapes are rendered
-      // Add a note card with search summary - position close to photo pin
-      editor.createShape({
-        id: noteId,
-        type: 'note-card',
-        x: photoPinX - 120,
-        y: photoPinY + 250,
-        props: {
-          w: 200,
-          h: 150,
-          text: `Found ${searchResults.length} potential matches\n\nSearch completed: ${new Date().toLocaleTimeString()}`,
-          color: '#ffeb3b',
-        },
-      })
-
-      // Auto-zoom to fit all elements on screen
-      setTimeout(() => {
-        const allShapes = editor.getCurrentPageShapes()
-        if (allShapes.length > 0) {
-          // Calculate bounding box of all shapes
-          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-
-          allShapes.forEach((shape: any) => {
-            const bounds = editor.getShapePageBounds(shape.id)
-            if (bounds) {
-              minX = Math.min(minX, bounds.minX)
-              minY = Math.min(minY, bounds.minY)
-              maxX = Math.max(maxX, bounds.maxX)
-              maxY = Math.max(maxY, bounds.maxY)
-            }
-          })
-
-          // Add padding
-          const padding = 100
-          const contentBox = new Box(
-            minX - padding,
-            minY - padding,
-            maxX - minX + padding * 2,
-            maxY - minY + padding * 2
-          )
-
-          // Zoom to fit with animation
-          editor.zoomToBounds(contentBox, {
-            animation: { duration: 500 },
-            targetZoom: Math.min(editor.getZoomLevel(), 1) // Don't zoom in more than 100%
-          })
-        }
-      }, 100) // Small delay to ensure all shapes are rendered
 
     } catch (error) {
       console.error('Error processing image:', error)
 
-      // Add error note - position close to photo pin
+      // Add error note - position centered under photo pin with slim margin
       const errorNoteId = createShapeId()
+      const errorNoteWidth = 200
+      const errorLeftOffset = 10 // Slight offset to the left
+      const errorMargin = 12 // Slim margin between photo pin and note card
       editor.createShape({
         id: errorNoteId,
         type: 'note-card',
-        x: photoPinX - 120,
-        y: photoPinY + 250,
+        x: photoPinX + (photoPinSize - errorNoteWidth) / 2 - errorLeftOffset,
+        y: photoPinY + photoPinSize + errorMargin,
         props: {
           w: 200,
           h: 120,

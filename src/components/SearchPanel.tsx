@@ -5,10 +5,12 @@ interface SearchPanelProps {
   onImageUpload: (file: File | string) => void
   isSearching: boolean
   onTextSearch: (searchTerm: string) => void
+  onLinkedInSearch: (username: string) => void
+  isLinkedInSearching: boolean
 }
 
 
-export function SearchPanel({ onImageUpload, isSearching, onTextSearch }: SearchPanelProps) {
+export function SearchPanel({ onImageUpload, isSearching, onTextSearch, onLinkedInSearch, isLinkedInSearching }: SearchPanelProps) {
   const [dragActive, setDragActive] = useState(false)
   const [isExpanded, setIsExpanded] = useState(true)
 
@@ -78,6 +80,39 @@ export function SearchPanel({ onImageUpload, isSearching, onTextSearch }: Search
               />
               <button type="submit" className="text-search-button">
                 Search
+              </button>
+            </form>
+          </div>
+
+          <h3>
+            LinkedIn Profile Search
+          </h3>
+          <div>
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                const input = e.currentTarget.querySelector('input[name="linkedin-username"]') as HTMLInputElement;
+                if (input && input.value.trim()) {
+                  onLinkedInSearch(input.value.trim())
+                  input.value = ''
+                }
+              }}
+              className="text-search-form"
+            >
+              <input
+                type="text"
+                name="linkedin-username"
+                placeholder="Enter LinkedIn Username"
+                className="text-search-input"
+                autoComplete="off"
+                disabled={isLinkedInSearching}
+              />
+              <button 
+                type="submit" 
+                className="text-search-button"
+                disabled={isLinkedInSearching}
+              >
+                {isLinkedInSearching ? 'Searching...' : 'Search'}
               </button>
             </form>
           </div>

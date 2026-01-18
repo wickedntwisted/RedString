@@ -1,3 +1,4 @@
+import type { ChangeEvent, DragEvent } from 'react'
 import {
 	Geometry2d,
 	HTMLContainer,
@@ -6,6 +7,7 @@ import {
 	ShapeUtil,
 	T,
 	TLBaseShape,
+	useEditor,
 } from 'tldraw'
 
 type IProfileCard = TLBaseShape<
@@ -73,6 +75,73 @@ export class ProfileCardUtil extends ShapeUtil<IProfileCard> {
 	}
 
 	override component(shape: IProfileCard) {
+		const editor = useEditor()
+
+		const updateImage = (imageUrl: string) => {
+			editor.updateShape({
+				id: shape.id,
+				type: 'profile-card',
+				props: {
+					imageUrl,
+				},
+			})
+		}
+
+		const handleDrop = async (event: DragEvent<HTMLDivElement>) => {
+			event.preventDefault()
+			event.stopPropagation()
+
+			const { files } = event.dataTransfer
+			if (files && files.length > 0) {
+				const file = Array.from(files).find((item) => item.type.startsWith('image/'))
+				if (file) {
+					const reader = new FileReader()
+					reader.onload = () => {
+						const result = typeof reader.result === 'string' ? reader.result : ''
+						if (result) {
+							updateImage(result)
+						}
+					}
+					reader.readAsDataURL(file)
+				}
+				return
+			}
+
+			const uriList = event.dataTransfer.getData('text/uri-list').trim()
+			const plainText = event.dataTransfer.getData('text/plain').trim()
+			const candidate = uriList || plainText
+
+			if (candidate.startsWith('data:image/')) {
+				updateImage(candidate)
+				return
+			}
+
+			try {
+				const url = new URL(candidate)
+				const hasImageExt = /\.(png|jpe?g|gif|webp|svg)$/i.test(url.pathname)
+				if (hasImageExt) {
+					updateImage(url.toString())
+				}
+			} catch {
+				// ignore non-url drops
+			}
+		}
+
+		const handleFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
+			const file = event.target.files?.[0]
+			if (file && file.type.startsWith('image/')) {
+				const reader = new FileReader()
+				reader.onload = () => {
+					const result = typeof reader.result === 'string' ? reader.result : ''
+					if (result) {
+						updateImage(result)
+					}
+				}
+				reader.readAsDataURL(file)
+			}
+			event.target.value = ''
+		}
+
 		return (
 			<HTMLContainer>
 				<div
@@ -81,9 +150,28 @@ export class ProfileCardUtil extends ShapeUtil<IProfileCard> {
 						width: shape.props.w,
 						height: shape.props.h,
 					}}
+					onDragOver={(event) => {
+						event.preventDefault()
+						event.stopPropagation()
+					}}
+					onDrop={handleDrop}
 				>
 					<div className="profile-card-pin"></div>
 					<div className="profile-card-content">
+						<label
+							className="profile-card-upload"
+							onPointerDown={(event) => event.stopPropagation()}
+							onClick={(event) => event.stopPropagation()}
+							style={{ pointerEvents: 'auto' }}
+						>
+							<input
+								type="file"
+								accept="image/*"
+								onChange={handleFileSelect}
+								style={{ display: 'none' }}
+							/>
+							Upload photo
+						</label>
 						{shape.props.imageUrl && (
 							<img 
 								src={shape.props.imageUrl} 
@@ -117,7 +205,7 @@ export class ProfileCardUtil extends ShapeUtil<IProfileCard> {
 		)
 	}
 
-	override indicator(shape: IProfileCard) {
+	override indicator(_shape: IProfileCard) {
 		return null
 	}
 }

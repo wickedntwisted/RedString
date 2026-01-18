@@ -66,6 +66,7 @@ export function SearchPanel({ onImageUpload, isSearching, onTextSearch }: Search
                 const input = e.currentTarget.querySelector('input[type="text"]') as HTMLInputElement;
                 if (input) {
                   onTextSearch(input.value)
+                  setIsExpanded(false)
                 }
               }}
               className="text-search-form"

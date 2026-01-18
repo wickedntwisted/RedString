@@ -156,30 +156,30 @@ const customComponents: TLComponents = {
 	},
 }
 
-// Helper function to save image to Vultr DB via Flask server
-async function saveImageToVultr(imageUrl: string): Promise<number | null> {
+async function uploadImageToFlask(file: File): Promise<string | null> {
   try {
+    const formData = new FormData()
+    formData.append('file', file)
+    
     const response = await fetch('http://localhost:5000/api/upload-image', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image_url: imageUrl })
+      body: formData
     })
     
     const data = await response.json()
     if (data.success) {
-      console.log('Image stored in Vultr DB with ID:', data.image_id)
-      return data.image_id
+      console.log('Image uploaded:', data.url)
+      return data.url
     } else {
-      console.error('Error saving to Vultr DB:', data.error)
+      console.error('Error uploading to Flask server:', data.error)
       return null
     }
   } catch (error) {
-    console.error('Upload to Vultr DB failed:', error)
+    console.error('Upload to Flask server failed:', error)
     return null
   }
 }
 
-// Component to track assets and save to Vultr DB
 function AssetTracker() {
   const editor = useEditor()
   const savedAssets = useRef<Set<string>>(new Set())
@@ -187,24 +187,22 @@ function AssetTracker() {
   useEffect(() => {
     if (!editor) return
 
-    // Check for new assets periodically
     const checkAssets = () => {
       const assets = editor.getAssets()
       assets.forEach(async (asset) => {
-        // Only process image assets that haven't been saved yet
         if (asset.type === 'image' && asset.props.src && !savedAssets.current.has(asset.id)) {
           const imageUrl = asset.props.src
-          // Check if it's a data URL (base64) or regular URL
-          if (imageUrl.startsWith('data:') || imageUrl.startsWith('http')) {
+          if (imageUrl.startsWith('data:')) {
             savedAssets.current.add(asset.id)
-            // Save to Vultr DB via Flask server
-            await saveImageToVultr(imageUrl)
+            // Convert data URL to blob and upload
+            const blob = await fetch(imageUrl).then(r => r.blob())
+            const file = new File([blob], 'image.png', { type: blob.type })
+            await uploadImageToFlask(file)
           }
         }
       })
     }
 
-    // Check immediately and then periodically
     checkAssets()
     const interval = setInterval(checkAssets, 1000)
 
@@ -304,14 +302,8 @@ export function DetectiveBoard() {
       Array.from(files).forEach(async (file) => {
         if (!file.type.startsWith('image/')) return
         
-        const reader = new FileReader()
-        reader.onload = async (event) => {
-          const imageUrl = event.target?.result as string
-          console.log('File dropped:', file.name)
-          
-          // Save to Vultr DB via Flask server when image is dropped
-          await saveImageToVultr(imageUrl)
-        }
+        console.log('File dropped:', file.name)
+        await uploadImageToFlask(file)
       })
     }
   }

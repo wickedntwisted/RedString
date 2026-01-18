@@ -8,7 +8,7 @@ interface SearchPanelProps {
 
 export function SearchPanel({ onImageUpload, isSearching }: SearchPanelProps) {
   const [dragActive, setDragActive] = useState(false)
-  const [isExpanded, setIsExpanded] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(true)
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()

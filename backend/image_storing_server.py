@@ -1,6 +1,6 @@
 import boto3
 import os
-import json  # add
+import json
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -15,7 +15,6 @@ access_key = os.getenv("VULTR_S3_ACCESS_KEY")
 bucket_name = os.getenv("VULTR_BUCKET_NAME")
 serp_api_key = os.getenv("SERP_API_KEY")
 
-# Directory to store SerpApi results
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), "serp_results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
@@ -65,8 +64,8 @@ def upload_image():
             return jsonify({'url': file_url, 'error': 'Missing SERP_API_KEY'}), 500
 
         params = {
-            "engine": "google_lens",
-            "url": file_url,
+            "engine": "google_reverse_image",
+            "image_url": file_url,
             "api_key": serp_api_key,
         }
         search = GoogleSearch(params)

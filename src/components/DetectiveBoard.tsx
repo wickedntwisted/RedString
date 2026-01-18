@@ -323,6 +323,7 @@ function AssetTracker() {
 export function DetectiveBoard() {
   const [editor, setEditor] = useState<Editor | null>(null)
   const [isSearching, setIsSearching] = useState(false)
+  const [isLinkedInSearching, setIsLinkedInSearching] = useState(false)
   const [isSherlockSearching, setIsSherlockSearching] = useState(false)
   const [leadBranchingFactor, setLeadBranchingFactor] = useState(2)
   const [isPanelExpanded, setIsPanelExpanded] = useState(true)
@@ -640,6 +641,12 @@ export function DetectiveBoard() {
 
   const mainNotePosition = {x:0, y:0}
   function handleTextUpload(inputstr : string) {
+    const noteCardWidth = 180
+    const noteCardHeight = 180
+    const viewport = editor.getViewportPageBounds()
+    const centerX = viewport.center.x - noteCardWidth / 2
+    const centerY = viewport.center.y - noteCardHeight / 2
+
     if (!editor) return
     const original_id = createShapeId()
 		editor.createShape({
@@ -860,6 +867,91 @@ export function DetectiveBoard() {
     resetTimeout()
 
   }
+
+  const handleLinkedInSearch = useCallback(async (username: string) => {
+    if (!editor) return
+
+    setIsLinkedInSearching(true)
+
+    try {
+      // Call the LinkedIn API endpoint
+      const response = await fetch(`http://localhost:5000/api/linkedin_photo_pins/${username}`)
+      const data = await response.json()
+
+      if (data.error) {
+        console.error('LinkedIn search error:', data.error)
+        alert(`Error: ${data.error}`)
+        return
+      }
+
+      // Calculate base position for photo pins
+      const allShapes = editor.getCurrentPageShapes()
+      const existingPhotoPins = allShapes.filter((shape: any) => shape.type === 'photo-pin')
+
+      let baseX = 300
+      let baseY = 300
+
+      if (existingPhotoPins.length > 0) {
+        // Offset from the last photo pin
+        const lastPin = existingPhotoPins[existingPhotoPins.length - 1]
+        baseX = lastPin.x + 250
+        baseY = lastPin.y
+      }
+
+      const pinWidth = 200
+      const pinHeight = 200
+      const horizontalSpacing = 250
+
+      // Create photo pins for each logo
+      data.photo_pins.forEach((pin: any, index: number) => {
+        const pinX = baseX + (index * horizontalSpacing)
+        const pinY = baseY
+
+        // Find non-colliding position
+        const position = findNonCollidingPosition(
+          editor,
+          pinX,
+          pinY,
+          pinWidth,
+          pinHeight,
+          80
+        )
+
+        editor.createShape({
+          id: createShapeId(),
+          type: 'photo-pin',
+          x: position.x,
+          y: position.y,
+          props: {
+            w: pinWidth,
+            h: pinHeight,
+            imageUrl: pin.imageUrl,
+            caption: pin.caption,
+          },
+        })
+      })
+
+      // Optionally, create a note with profile info
+      if (data.profile && data.profile.name) {
+        editor.createShape({
+          id: createShapeId(),
+          type: 'note-card',
+          x: baseX,
+          y: baseY - 150,
+          props: {
+            text: `${data.profile.name}\n${data.profile.location || ''}\n${data.profile.linkedin_url || ''}`,
+          },
+        })
+      }
+
+    } catch (error) {
+      console.error('Error fetching LinkedIn data:', error)
+      alert('Failed to fetch LinkedIn data. Make sure the backend server is running.')
+    } finally {
+      setIsLinkedInSearching(false)
+    }
+  }, [editor])
+
   const handleImageUpload = useCallback(async (file: File | string) => {
     if (!editor) return
 
@@ -1187,7 +1279,9 @@ export function DetectiveBoard() {
       <SearchPanel
         onImageUpload={handleImageUpload}
         onTextSearch={handleTextUpload}
+        onLinkedInSearch={handleLinkedInSearch}
         isSearching={isSearching}
+        isLinkedInSearching={isLinkedInSearching}
         onExpandChange={setIsPanelExpanded}
       />
       {/* Lead Branching Factor Slider */}

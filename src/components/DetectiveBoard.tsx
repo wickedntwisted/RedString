@@ -314,6 +314,89 @@ export function DetectiveBoard() {
     }
   }, [handleRopeConfirm, handleRopeDiscard])
 
+  // Update rope positions when connected shapes move
+  React.useEffect(() => {
+    if (!editor) return
+
+    const updateRopePosition = (ropeShape: any, fromShape: any, toShape: any) => {
+      // Calculate pin positions based on shape type
+      let fromPinX: number, fromPinY: number, toPinX: number, toPinY: number
+
+      // For photo-pin shapes
+      if (fromShape.type === 'photo-pin') {
+        const photoPinWidth = fromShape.props.w
+        fromPinX = fromShape.x + photoPinWidth / 2
+        fromPinY = fromShape.y + 12
+      } else if (fromShape.type === 'profile-card') {
+        const profileCardWidth = fromShape.props.w
+        fromPinX = fromShape.x + profileCardWidth / 2
+        fromPinY = fromShape.y + 18
+      } else {
+        return // Unknown shape type
+      }
+
+      // For destination shape
+      if (toShape.type === 'photo-pin') {
+        const photoPinWidth = toShape.props.w
+        toPinX = toShape.x + photoPinWidth / 2
+        toPinY = toShape.y + 12
+      } else if (toShape.type === 'profile-card') {
+        const profileCardWidth = toShape.props.w
+        toPinX = toShape.x + profileCardWidth / 2
+        toPinY = toShape.y + 18
+      } else {
+        return // Unknown shape type
+      }
+
+      // Calculate new angle and distance
+      const dx = toPinX - fromPinX
+      const dy = toPinY - fromPinY
+      const angle = Math.atan2(dy, dx)
+      const ropeLength = Math.sqrt(dx * dx + dy * dy)
+
+      // Update rope
+      editor.updateShape({
+        id: ropeShape.id,
+        type: 'rope',
+        x: fromPinX,
+        y: fromPinY,
+        rotation: angle,
+        props: {
+          ...ropeShape.props,
+          w: ropeLength,
+        },
+      })
+    }
+
+    const handleShapeChange = () => {
+      // Get all ropes
+      const allShapes = editor.getCurrentPageShapes()
+      const ropes = allShapes.filter((shape: any) => shape.type === 'rope')
+
+      // Update each rope
+      ropes.forEach((rope: any) => {
+        const fromShapeId = rope.props.fromShapeId
+        const toShapeId = rope.props.toShapeId
+
+        if (fromShapeId && toShapeId) {
+          const fromShape = editor.getShape(fromShapeId as any)
+          const toShape = editor.getShape(toShapeId as any)
+
+          if (fromShape && toShape) {
+            updateRopePosition(rope, fromShape, toShape)
+          }
+        }
+      })
+    }
+
+    // Listen to shape changes
+    const dispose = editor.store.listen(handleShapeChange, { scope: 'document' })
+
+    return () => {
+      dispose()
+    }
+  }, [editor])
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -436,63 +519,27 @@ export function DetectiveBoard() {
 
         profileShapes.push({ id: profileId, x: profileX, y: profileY, profile })
 
-        // Create red rope connection from photo to profile (pending confirmation)
-        // Calculate edge-to-edge connection
+        // Create red rope connection from photo pin to profile pin
         const photoPinWidth = 200
-        const photoPinHeight = 200
         const profileCardWidth = 280
-        const profileCardHeight = 200
-        
-        // Calculate center points
-        const photoCenterX = photoPinX + photoPinWidth / 2
-        const photoCenterY = photoPinY + photoPinHeight / 2
-        const profileCenterX = profileX + profileCardWidth / 2
-        const profileCenterY = profileY + profileCardHeight / 2
-        
-        // Calculate angle
-        const dx = profileCenterX - photoCenterX
-        const dy = profileCenterY - photoCenterY
+
+        // Calculate pin positions (pins are centered at top of each card)
+        // Photo pin: center at top + 12px (4px offset + 16px height / 2)
+        // Profile card pin: center at top + 18px (8px offset + 20px height / 2)
+        const photoPinCenterX = photoPinX + photoPinWidth / 2
+        const photoPinCenterY = photoPinY + 12
+        const profilePinCenterX = profileX + profileCardWidth / 2
+        const profilePinCenterY = profileY + 18
+
+        // Calculate angle and distance between pins
+        const dx = profilePinCenterX - photoPinCenterX
+        const dy = profilePinCenterY - photoPinCenterY
         const angle = Math.atan2(dy, dx)
-        
-        // Calculate edge intersection points for rectangles
-        // For photo pin - find which edge the line intersects
-        const photoAspect = Math.abs(Math.tan(angle))
-        let photoEdgeX: number, photoEdgeY: number
-        if (photoAspect > photoPinHeight / photoPinWidth) {
-          // Intersects top or bottom edge
-          const sign = dy > 0 ? 1 : -1
-          photoEdgeY = photoCenterY + sign * (photoPinHeight / 2)
-          photoEdgeX = photoCenterX + (photoEdgeY - photoCenterY) / Math.tan(angle)
-        } else {
-          // Intersects left or right edge
-          const sign = dx > 0 ? 1 : -1
-          photoEdgeX = photoCenterX + sign * (photoPinWidth / 2)
-          photoEdgeY = photoCenterY + (photoEdgeX - photoCenterX) * Math.tan(angle)
-        }
-        
-        // For profile card - find which edge the line intersects
-        const profileAspect = Math.abs(Math.tan(angle))
-        let profileEdgeX: number, profileEdgeY: number
-        if (profileAspect > profileCardHeight / profileCardWidth) {
-          // Intersects top or bottom edge
-          const sign = dy < 0 ? 1 : -1
-          profileEdgeY = profileCenterY + sign * (profileCardHeight / 2)
-          profileEdgeX = profileCenterX + (profileEdgeY - profileCenterY) / Math.tan(angle)
-        } else {
-          // Intersects left or right edge
-          const sign = dx < 0 ? 1 : -1
-          profileEdgeX = profileCenterX + sign * (profileCardWidth / 2)
-          profileEdgeY = profileCenterY + (profileEdgeX - profileCenterX) * Math.tan(angle)
-        }
-        
-        // Calculate rope length - distance from photo edge to profile edge
-        const ropeLength = Math.sqrt(
-          Math.pow(profileEdgeX - photoEdgeX, 2) + Math.pow(profileEdgeY - photoEdgeY, 2)
-        )
-        
-        // Position rope starting at the photo edge, pointing toward profile edge
-        const ropeX = photoEdgeX
-        const ropeY = photoEdgeY
+        const ropeLength = Math.sqrt(dx * dx + dy * dy)
+
+        // Position rope starting at the photo pin
+        const ropeX = photoPinCenterX
+        const ropeY = photoPinCenterY
 
         const ropeId = createShapeId()
         editor.createShape({
@@ -526,50 +573,23 @@ export function DetectiveBoard() {
           if (hasCommonCompany || hasCommonLocation || hasCommonDomain) {
             const ropeId = createShapeId()
             const profileCardWidth = 280
-            const profileCardHeight = 200
-            
-            // Calculate center points
-            const profile1CenterX = profile1.x + profileCardWidth / 2
-            const profile1CenterY = profile1.y + profileCardHeight / 2
-            const profile2CenterX = profile2.x + profileCardWidth / 2
-            const profile2CenterY = profile2.y + profileCardHeight / 2
-            
-            // Calculate angle
-            const dx = profile2CenterX - profile1CenterX
-            const dy = profile2CenterY - profile1CenterY
+
+            // Calculate pin positions (pins are centered at top of cards)
+            // Profile card pin: center at top + 18px (8px offset + 20px height / 2)
+            const profile1PinCenterX = profile1.x + profileCardWidth / 2
+            const profile1PinCenterY = profile1.y + 18
+            const profile2PinCenterX = profile2.x + profileCardWidth / 2
+            const profile2PinCenterY = profile2.y + 18
+
+            // Calculate angle and distance between pins
+            const dx = profile2PinCenterX - profile1PinCenterX
+            const dy = profile2PinCenterY - profile1PinCenterY
             const angle = Math.atan2(dy, dx)
-            
-            // Calculate edge intersection points for rectangles
-            const aspect = Math.abs(Math.tan(angle))
-            let profile1EdgeX: number, profile1EdgeY: number
-            let profile2EdgeX: number, profile2EdgeY: number
-            
-            if (aspect > profileCardHeight / profileCardWidth) {
-              // Intersects top or bottom edge
-              const sign1 = dy > 0 ? 1 : -1
-              const sign2 = dy < 0 ? 1 : -1
-              profile1EdgeY = profile1CenterY + sign1 * (profileCardHeight / 2)
-              profile1EdgeX = profile1CenterX + (profile1EdgeY - profile1CenterY) / Math.tan(angle)
-              profile2EdgeY = profile2CenterY + sign2 * (profileCardHeight / 2)
-              profile2EdgeX = profile2CenterX + (profile2EdgeY - profile2CenterY) / Math.tan(angle)
-            } else {
-              // Intersects left or right edge
-              const sign1 = dx > 0 ? 1 : -1
-              const sign2 = dx < 0 ? 1 : -1
-              profile1EdgeX = profile1CenterX + sign1 * (profileCardWidth / 2)
-              profile1EdgeY = profile1CenterY + (profile1EdgeX - profile1CenterX) * Math.tan(angle)
-              profile2EdgeX = profile2CenterX + sign2 * (profileCardWidth / 2)
-              profile2EdgeY = profile2CenterY + (profile2EdgeX - profile2CenterX) * Math.tan(angle)
-            }
-            
-            // Calculate rope length - distance from profile1 edge to profile2 edge
-            const ropeLength = Math.sqrt(
-              Math.pow(profile2EdgeX - profile1EdgeX, 2) + Math.pow(profile2EdgeY - profile1EdgeY, 2)
-            )
-            
-            // Position rope starting at profile1 edge, pointing toward profile2 edge
-            const ropeX = profile1EdgeX
-            const ropeY = profile1EdgeY
+            const ropeLength = Math.sqrt(dx * dx + dy * dy)
+
+            // Position rope starting at profile1 pin
+            const ropeX = profile1PinCenterX
+            const ropeY = profile1PinCenterY
 
             editor.createShape({
               id: ropeId,

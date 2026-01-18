@@ -4,7 +4,7 @@ import os
 import json
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, Response, stream_with_context
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 from werkzeug.utils import secure_filename
 from serpapi import GoogleSearch
 from linkedin_service import scrape_user, scrape_company
@@ -34,6 +34,7 @@ client = session.client('s3', **{
 })
 
 app = Flask(__name__)
+app.config['CORS_HEADERS'] = 'Content-Type'
 CORS(app)
 
 def build_image_url(filename: str) -> str:
@@ -171,7 +172,7 @@ def search_sherlock_username(username):
 
 @app.route('/api/search_naminter/<username>')
 def search_naminter_username(username):
-    print(f"searching for user: {username}")
+    print(f"searching for NAMINTER user: {username}")
     async def generate():
         async for result in stream_naminter(username):
             yield f"data: {result}\n\n"  # SSE format

@@ -1452,66 +1452,207 @@ export function DetectiveBoard() {
   }
 
   function handleTextUpload(inputstr : string) {
+    // Calculate position for the initial note card
+    const noteCardWidth = 180
+    const noteCardHeight = 180
+    const viewport = editor.getViewportPageBounds()
+    const centerX = viewport.center.x - noteCardWidth / 2
+    const centerY = viewport.center.y - noteCardHeight / 2
+
+    // Find non-colliding position for the main note
+    const mainNotePosition = findNonCollidingPosition(
+      editor,
+      centerX,
+      centerY,
+      noteCardWidth,
+      noteCardHeight,
+      50
+    )
+
     const original_id = createShapeId()
 		editor.createShape<NoteCardUtil>({
       id : original_id,
 		  type: 'note-card',
-		  x: 0,
-		  y: 0,
+		  x: mainNotePosition.x,
+		  y: mainNotePosition.y,
       props :{
-        text : inputstr
+        text : inputstr,
+        w: noteCardWidth,
+        h: noteCardHeight
       }
 		})
+
+    // Track result index for radial positioning
+    let resultIndex = 0
+
+    // Radial layout parameters
+    const startAngle = Math.random() * 2 * Math.PI
+    const direction = Math.random() < 0.5 ? 1 : -1
+    const radius = 350
+    const angleSpacing = Math.PI / 4 // 45 degrees between results
+
+    // Main note center for positioning
+    const mainNoteCenterX = mainNotePosition.x + noteCardWidth / 2
+    const mainNoteCenterY = mainNotePosition.y + noteCardHeight / 2
+
+    const eventSource2 = new EventSource('http://127.0.0.1:5000/api/search_naminter/'+inputstr);
+    eventSource2.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        console.log(`Found NAMINTER DATA: ${data.name} at ${data.url}`);
+        const new_id = createShapeId()
+		    editor.createShape<NoteCardUtil>({
+          id : new_id,
+		      type: 'note-card',
+		      x: 0,
+		      y: 0,
+          props :{
+            text : `${data.name} : ${data.url}`
+          }
+		    })
+        // Calculate angle for this result
+        const angle = startAngle + (direction * angleSpacing * resultIndex)
+
+        // Calculate ideal position using polar coordinates
+        const idealX = mainNoteCenterX + radius * Math.cos(angle) - noteCardWidth / 2
+        const idealY = mainNoteCenterY + radius * Math.sin(angle) - noteCardHeight / 2
+
+        // Find non-colliding position with padding
+        const position = findNonCollidingPosition(
+          editor,
+          idealX,
+          idealY,
+          noteCardWidth,
+          noteCardHeight,
+          50
+        )
+
+        const resultNoteId = createShapeId()
+		    editor.createShape<NoteCardUtil>({
+          id : resultNoteId,
+		      type: 'note-card',
+		      x: position.x,
+		      y: position.y,
+          props :{
+            text : `${data.name} : ${data.url}`,
+            w: noteCardWidth,
+            h: noteCardHeight
+          }
+		    })
+
+        // Create red rope connection from main note to result note
+        // Calculate pin positions (at bottom of pin balls)
+        // Note card pin: bottom of ball at top + 20px (6px offset + 14px height)
+        const mainNotePinX = mainNoteCenterX
+        const mainNotePinY = mainNotePosition.y + 20
+        const resultNotePinX = position.x + noteCardWidth / 2
+        const resultNotePinY = position.y + 20
+
+        // Calculate angle and distance between pins
+        const dx = resultNotePinX - mainNotePinX
+        const dy = resultNotePinY - mainNotePinY
+        const ropeAngle = Math.atan2(dy, dx)
+        const ropeLength = Math.sqrt(dx * dx + dy * dy)
+
+        // Position rope starting at the main note pin
+        const ropeX = mainNotePinX
+        const ropeY = mainNotePinY
+
+        const ropeId = createShapeId()
+        editor.createShape({
+          id: ropeId,
+          type: 'temporal_rope',
+          x: ropeX,
+          y: ropeY,
+          rotation: ropeAngle,
+          props: {
+            w: ropeLength,
+            h: 3,
+            thickness: 3,
+            confirmed: false,
+            fromShapeId: original_id,
+            toShapeId: resultNoteId,
+          },
+        })
+
+        resultIndex++
+    };
+    eventSource2.onerror = () => {
+      console.log("ERRORR")
+        eventSource.close();
+    };
     const eventSource = new EventSource('http://127.0.0.1:5000/api/search_sherlock/'+inputstr);
     eventSource.onmessage = (event) => {
         const data = JSON.parse(event.data);
         console.log(`Found: ${data.name} at ${data.url}`);
-        const new_id = createShapeId()
+
+        // Calculate angle for this result
+        const angle = startAngle + (direction * angleSpacing * resultIndex)
+
+        // Calculate ideal position using polar coordinates
+        const idealX = mainNoteCenterX + radius * Math.cos(angle) - noteCardWidth / 2
+        const idealY = mainNoteCenterY + radius * Math.sin(angle) - noteCardHeight / 2
+
+        // Find non-colliding position with padding
+        const position = findNonCollidingPosition(
+          editor,
+          idealX,
+          idealY,
+          noteCardWidth,
+          noteCardHeight,
+          50
+        )
+
+        const resultNoteId = createShapeId()
 		    editor.createShape<NoteCardUtil>({
-          id : new_id,
+          id : resultNoteId,
 		      type: 'note-card',
-		      x: 0,
-		      y: 0,
+		      x: position.x,
+		      y: position.y,
           props :{
-            text : `${data.name} : ${data.url}`
+            text : `${data.name} : ${data.url}`,
+            w: noteCardWidth,
+            h: noteCardHeight
           }
 		    })
-				editor.createShape({
-					id: createShapeId(),
-					type: 'rope',
-					props: {
-						fromShapeId: original_id,
-						toShapeId: new_id,
-					},
-				})
+
+        // Create red rope connection from main note to result note
+        // Calculate pin positions (at bottom of pin balls)
+        // Note card pin: bottom of ball at top + 20px (6px offset + 14px height)
+        const mainNotePinX = mainNoteCenterX
+        const mainNotePinY = mainNotePosition.y + 20
+        const resultNotePinX = position.x + noteCardWidth / 2
+        const resultNotePinY = position.y + 20
+
+        // Calculate angle and distance between pins
+        const dx = resultNotePinX - mainNotePinX
+        const dy = resultNotePinY - mainNotePinY
+        const ropeAngle = Math.atan2(dy, dx)
+        const ropeLength = Math.sqrt(dx * dx + dy * dy)
+
+        // Position rope starting at the main note pin
+        const ropeX = mainNotePinX
+        const ropeY = mainNotePinY
+
+        const ropeId = createShapeId()
+        editor.createShape({
+          id: ropeId,
+          type: 'temporal_rope',
+          x: ropeX,
+          y: ropeY,
+          rotation: ropeAngle,
+          props: {
+            w: ropeLength,
+            h: 3,
+            thickness: 3,
+            confirmed: false,
+            fromShapeId: original_id,
+            toShapeId: resultNoteId,
+          },
+        })
+
+        resultIndex++
     };
     eventSource.onerror = () => {
-        eventSource.close();
-    };
-    const eventSource2 = new EventSource('http://127.0.0.1:5000/api/search_naminter/'+inputstr);
-    eventSource2.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        console.log(`Found: ${data.name} at ${data.url}`);
-        const new_id = createShapeId()
-		    editor.createShape<NoteCardUtil>({
-          id : new_id,
-		      type: 'note-card',
-		      x: 0,
-		      y: 0,
-          props :{
-            text : `${data.name} : ${data.url}`
-          }
-		    })
-				editor.createShape({
-					id: createShapeId(),
-					type: 'rope',
-					props: {
-						fromShapeId: original_id,
-						toShapeId: new_id,
-					},
-				})
-    };
-    eventSource2.onerror = () => {
         eventSource.close();
     };
 

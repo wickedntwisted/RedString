@@ -9,6 +9,7 @@ from werkzeug.utils import secure_filename
 from serpapi import GoogleSearch
 from linkedin_service import scrape_user, scrape_company
 from sherlock_generator import stream_sherlock
+from naminter_generator import stream_naminter
 import time
 
 load_dotenv()
@@ -138,10 +139,41 @@ def get_text():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/search/<username>')
-def search_username(username):
+@app.route('/api/search_sherlock/<username>')
+def search_sherlock_username(username):
+    print(f"searching for user: {username}")
     async def generate():
         async for result in stream_sherlock(username):
+            yield f"data: {result}\n\n"  # SSE format
+    
+    # Run async generator in sync context
+    def sync_generate():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            async_gen = generate()
+            while True:
+                try:
+                    yield loop.run_until_complete(async_gen.__anext__())
+                except StopAsyncIteration:
+                    break
+        finally:
+            loop.close()
+    
+    return Response(
+        stream_with_context(sync_generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no'  # Disable nginx buffering
+        }
+    )
+
+@app.route('/api/search_naminter/<username>')
+def search_naminter_username(username):
+    print(f"searching for user: {username}")
+    async def generate():
+        async for result in stream_naminter(username):
             yield f"data: {result}\n\n"  # SSE format
     
     # Run async generator in sync context

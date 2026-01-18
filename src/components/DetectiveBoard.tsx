@@ -1462,12 +1462,13 @@ export function DetectiveBoard() {
         text : inputstr
       }
 		})
-    const eventSource = new EventSource('http://127.0.0.1:5000/api/search/'+inputstr);
+    const eventSource = new EventSource('http://127.0.0.1:5000/api/search_sherlock/'+inputstr);
     eventSource.onmessage = (event) => {
         const data = JSON.parse(event.data);
         console.log(`Found: ${data.name} at ${data.url}`);
+        const new_id = createShapeId()
 		    editor.createShape<NoteCardUtil>({
-          id : createShapeId(),
+          id : new_id,
 		      type: 'note-card',
 		      x: 0,
 		      y: 0,
@@ -1475,8 +1476,42 @@ export function DetectiveBoard() {
             text : `${data.name} : ${data.url}`
           }
 		    })
+				editor.createShape({
+					id: createShapeId(),
+					type: 'rope',
+					props: {
+						fromShapeId: original_id,
+						toShapeId: new_id,
+					},
+				})
     };
     eventSource.onerror = () => {
+        eventSource.close();
+    };
+    const eventSource2 = new EventSource('http://127.0.0.1:5000/api/search_naminter/'+inputstr);
+    eventSource2.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        console.log(`Found: ${data.name} at ${data.url}`);
+        const new_id = createShapeId()
+		    editor.createShape<NoteCardUtil>({
+          id : new_id,
+		      type: 'note-card',
+		      x: 0,
+		      y: 0,
+          props :{
+            text : `${data.name} : ${data.url}`
+          }
+		    })
+				editor.createShape({
+					id: createShapeId(),
+					type: 'rope',
+					props: {
+						fromShapeId: original_id,
+						toShapeId: new_id,
+					},
+				})
+    };
+    eventSource2.onerror = () => {
         eventSource.close();
     };
 

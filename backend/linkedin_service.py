@@ -94,6 +94,6 @@ async def scrape_company(company : str):
         return json.dumps(returned_data)
                         
 
-response = asyncio.run(scrape_user("aathithy-aananth"))
-print(response)
-asyncio.run(scrape_user("aathithya-ananth"))
+#response = asyncio.run(scrape_user("aathithy-aananth"))
+#print(response)
+#asyncio.run(scrape_user("aathithya-ananth"))

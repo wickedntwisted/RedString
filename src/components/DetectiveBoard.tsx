@@ -641,6 +641,12 @@ export function DetectiveBoard() {
 
   const mainNotePosition = {x:0, y:0}
   function handleTextUpload(inputstr : string) {
+    const noteCardWidth = 180
+    const noteCardHeight = 180
+    const viewport = editor.getViewportPageBounds()
+    const centerX = viewport.center.x - noteCardWidth / 2
+    const centerY = viewport.center.y - noteCardHeight / 2
+
     if (!editor) return
     const original_id = createShapeId()
 		editor.createShape({

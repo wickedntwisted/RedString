@@ -2,7 +2,7 @@ import { useState } from 'react'
 import './SearchPanel.css'
 
 interface SearchPanelProps {
-  onImageUpload: (file: File) => void
+  onImageUpload: (file: File | string) => void
   isSearching: boolean
 }
 
@@ -27,12 +27,21 @@ export function SearchPanel({ onImageUpload, isSearching }: SearchPanelProps) {
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       onImageUpload(e.dataTransfer.files[0])
+      setIsExpanded(false)
+      return
+    }
+
+    const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain')
+    if (url) {
+      onImageUpload(url)
+      setIsExpanded(false)
     }
   }
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       onImageUpload(e.target.files[0])
+      setIsExpanded(false)
     }
   }
 

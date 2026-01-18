@@ -1240,7 +1240,7 @@ export function DetectiveBoard() {
     }
   }, [handleRopeConfirm, handleRopeDiscard])
 
-  // Update rope positions when connected shapes move
+  // Update rope positions when connected shapes move and clean up orphaned ropes
   React.useEffect(() => {
     if (!editor) return
 
@@ -1307,7 +1307,10 @@ export function DetectiveBoard() {
       const allShapes = editor.getCurrentPageShapes()
       const ropes = allShapes.filter((shape: any) => shape.type === 'temporal_rope' || shape.type === 'rope')
 
-      // Update each rope
+      // Track ropes to delete
+      const ropesToDelete: string[] = []
+
+      // Update each rope or mark for deletion if orphaned
       ropes.forEach((rope: any) => {
         const fromShapeId = rope.props.fromShapeId
         const toShapeId = rope.props.toShapeId
@@ -1316,11 +1319,20 @@ export function DetectiveBoard() {
           const fromShape = editor.getShape(fromShapeId as any)
           const toShape = editor.getShape(toShapeId as any)
 
-          if (fromShape && toShape) {
+          // If either connected shape is missing, mark rope for deletion
+          if (!fromShape || !toShape) {
+            ropesToDelete.push(rope.id)
+          } else {
+            // Both shapes exist, update rope position
             updateRopePosition(rope, fromShape, toShape)
           }
         }
       })
+
+      // Delete orphaned ropes
+      if (ropesToDelete.length > 0) {
+        editor.deleteShapes(ropesToDelete as any)
+      }
     }
 
     // Listen to shape changes

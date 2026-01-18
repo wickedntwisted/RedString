@@ -115,13 +115,8 @@ export function SearchPanel({ onImageUpload, isSearching }: SearchPanelProps) {
           className="search-panel-button"
           onClick={() => setIsExpanded(true)}
           title="Upload Image"
-          style={{ color: '#000' }}
         >
-          <img
-            src="/camera-solid-full.svg"
-            alt="Upload"
-            style={{ width: 22, height: 22, objectFit: 'contain' }}
-          />
+          📷
         </button>
       )}
     </>

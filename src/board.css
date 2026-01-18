@@ -23,7 +23,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: 
+    background:
         repeating-linear-gradient(
             0deg,
             transparent,
@@ -33,4 +33,13 @@
         );
     pointer-events: none;
     z-index: 1;
+}
+
+/* Move tldraw style panel (color picker) to bottom right */
+.tlui-style-panel {
+    position: fixed !important;
+    top: auto !important;
+    bottom: 20px !important;
+    right: 20px !important;
+    left: auto !important;
 }

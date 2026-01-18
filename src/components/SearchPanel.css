@@ -12,6 +12,50 @@
   border: 2px solid rgba(139, 69, 19, 0.3);
 }
 
+.search-panel-toggle {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #8b4513;
+  padding: 5px 10px;
+  border-radius: 4px;
+  transition: background 0.2s;
+  z-index: 1001;
+}
+
+.search-panel-toggle:hover {
+  background: rgba(139, 69, 19, 0.1);
+}
+
+.search-panel-button {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 60px;
+  height: 60px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px solid rgba(139, 69, 19, 0.3);
+  border-radius: 12px;
+  font-size: 30px;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  z-index: 1000;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-panel-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+}
+
 .search-panel-header h2 {
   margin: 0 0 8px 0;
   font-size: 24px;

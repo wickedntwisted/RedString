@@ -6,10 +6,8 @@ import { useEffect } from 'react'
 function App() {
   useEffect(() => {
     setTimeout(() => {
-      const watermark = document.querySelector('.tl-watermark_SEE-LICENSE')
-      if (watermark) {
-        watermark.remove()
-      }
+      const watermarks = document.querySelectorAll('[class*="tl-watermark"]')
+      watermarks.forEach((watermark) => watermark.remove())
     }, 0)
   }, [])
 

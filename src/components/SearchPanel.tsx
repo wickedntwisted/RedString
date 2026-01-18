@@ -8,7 +8,7 @@ interface SearchPanelProps {
 
 export function SearchPanel({ onImageUpload, isSearching }: SearchPanelProps) {
   const [dragActive, setDragActive] = useState(false)
-  const [isExpanded, setIsExpanded] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(true)
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
@@ -48,7 +48,7 @@ export function SearchPanel({ onImageUpload, isSearching }: SearchPanelProps) {
             ✕
           </button>
           <div className="search-panel-header">
-            <h2>🔍 Detective Board</h2>
+            <h2>Detective Board</h2>
             <p>Upload a photo to search for profiles</p>
           </div>
 
@@ -106,8 +106,13 @@ export function SearchPanel({ onImageUpload, isSearching }: SearchPanelProps) {
           className="search-panel-button"
           onClick={() => setIsExpanded(true)}
           title="Upload Image"
+          style={{ color: '#000' }}
         >
-          📷
+          <img
+            src="/camera-solid-full.svg"
+            alt="Upload"
+            style={{ width: 22, height: 22, objectFit: 'contain' }}
+          />
         </button>
       )}
     </>

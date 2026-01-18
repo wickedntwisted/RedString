@@ -21,6 +21,9 @@ export class NoteCardTool extends StateNode {
 			type: 'note-card',
 			x: currentPagePoint.x - OFFSET,
 			y: currentPagePoint.y - OFFSET,
+			props: {
+				text: "EDIT ME",
+			},
 		})
 	}
 }

@@ -132,11 +132,20 @@ def linkedin_scrape_company(company : str):
 @app.route('/api/text-search', methods=['POST'])
 def get_text():
     try:
-        if request.method == 'POST':
-            print(request.json)
-            # call ghunt with the request json text
-            username = request.json['text']
-            return "HELLO WORLD"
+        payload = request.get_json(silent=True) or {}
+        text = payload.get('text', '')
+        image_url = payload.get('imageUrl', '')
+        filename = payload.get('filename', '')
+
+        # call ghunt with the payload
+        print(f"GHunt payload: text={text}, imageUrl={image_url}, filename={filename}")
+
+        return jsonify({
+            'status': 'queued',
+            'text': text,
+            'imageUrl': image_url,
+            'filename': filename,
+        }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

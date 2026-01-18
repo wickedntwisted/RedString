@@ -6,6 +6,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from serpapi import GoogleSearch
+import time
 
 load_dotenv()
 
@@ -55,7 +56,7 @@ def upload_image():
             Key=filename,
             Body=file_data,
             ContentType=file.content_type,
-            ACL='public-read'  # ensure public access for SerpApi
+            ACL='public-read'
         )
         
         file_url = build_image_url(filename)
@@ -64,22 +65,32 @@ def upload_image():
             return jsonify({'url': file_url, 'error': 'Missing SERP_API_KEY'}), 500
 
         params = {
-            "engine": "google_reverse_image",
+            "engine": "google",
+            "q": f"site:linkedin.com",
+            "tbm": "isch",  # image search
             "image_url": file_url,
             "api_key": serp_api_key,
         }
         search = GoogleSearch(params)
         results = search.get_dict()
 
+        # Check if results contain any matches
+        has_results = bool(results.get('results') or results.get('inline_images') or results.get('reverse_image_results'))
+        
+        response_data = {
+            "url": file_url,
+            "serpapi": results
+        }
+        
+        if not has_results:
+            response_data["message"] = "No results found"
+
         # Write result to JSON file under backend/serp_results/<filename>.json
         results_path = os.path.join(RESULTS_DIR, f"{filename}.json")
         with open(results_path, "w", encoding="utf-8") as f:
-            json.dump({"url": file_url, "serpapi": results}, f, ensure_ascii=False, indent=2)
+            json.dump(response_data, f, ensure_ascii=False, indent=2)
 
-        return jsonify({
-            "url": file_url,
-            "serpapi": results
-        }), 201
+        return jsonify(response_data), 201
     
     except Exception as e:
         print(f"ERROR: {str(e)}")

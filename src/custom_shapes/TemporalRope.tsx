@@ -9,7 +9,7 @@ import {
 } from 'tldraw'
 
 type IRopeShape = TLBaseShape<
-	'rope',
+	'temporal_rope',
 	{
 		w: number
 		h: number
@@ -20,8 +20,8 @@ type IRopeShape = TLBaseShape<
 	}
 >
 
-export class RopeUtil extends ShapeUtil<IRopeShape> {
-	static override type = 'rope' as const
+export class TemporalRopeUtil extends ShapeUtil<IRopeShape> {
+	static override type = 'temporal_rope' as const
 	
 	static override props: RecordProps<IRopeShape> = {
 		w: T.number,
@@ -64,7 +64,6 @@ export class RopeUtil extends ShapeUtil<IRopeShape> {
 	override hideResizeHandles() {
 		return true
 	}
-
 
 	getGeometry(shape: IRopeShape): Geometry2d {
 		return new Rectangle2d({

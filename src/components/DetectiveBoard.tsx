@@ -28,20 +28,23 @@ import { PhotoPinUtil } from '../custom_shapes/PhotoPin'
 import { PhotoPinTool } from '../custom_tools/PhotoPinTool'
 import { NoteCardUtil } from '../custom_shapes/NoteCard'
 import { NoteCardTool } from '../custom_tools/NoteCardTool'
-import { RopeUtil } from '../custom_shapes/rope'
+import { TemporalRopeUtil } from '../custom_shapes/TemporalRope'
+import { RopeUtil } from '../custom_shapes/Rope'
+import { RopeTool } from '../custom_tools/RopeTool'
 
 // Custom shapes configuration - must be an array
 const customShapes = [
 	ProfileCardUtil,
 	PhotoPinUtil,
 	NoteCardUtil,
-	RopeUtil,
+	TemporalRopeUtil,
 ]
 
 const customTool = [
   ProfileCardTool,
   PhotoPinTool,
-  NoteCardTool
+  NoteCardTool,
+  RopeTool
 ]
 
 const bg_image = new window.Image()
@@ -49,7 +52,7 @@ bg_image.src = '/corkboard.webp'
 
 const customUiOverrides: TLUiOverrides = {
 	tools: (editor: any, tools: any) => {
-		const whitelist = new Set(['select', 'hand', 'laser', 'eraser', 'draw', 'arrow', 'note', 'asset'])
+		const whitelist = new Set(['select', 'hand', 'laser', 'eraser', 'draw', 'arrow', 'asset'])
 		return {
 			profile_card: {
 				id: 'profile_card',
@@ -78,6 +81,15 @@ const customUiOverrides: TLUiOverrides = {
           editor.setCurrentTool('note_card')
         },
       },
+			rope_tool: {
+				id: 'rope_tool',
+        label: 'Rope Tool',
+        icon: 'tool-rope',
+        kbd: 'p',
+        onSelect() {
+          editor.setCurrentTool('rope_tool')
+        },
+      },
 			...Object.fromEntries(
 				Object.entries(tools).filter(([id]) => whitelist.has(id))
 			)
@@ -93,6 +105,7 @@ function CustomToolbar() {
       <TldrawUiMenuItem {...tools['profile_card']} isSelected={useIsToolSelected(tools['profile_card'])} />
       <TldrawUiMenuItem {...tools['photo_pin']} isSelected={useIsToolSelected(tools['photo_pin'])} />
       <TldrawUiMenuItem {...tools['note_card']} isSelected={useIsToolSelected(tools['note_card'])} />
+      <TldrawUiMenuItem {...tools['rope_tool']} isSelected={useIsToolSelected(tools['rope_tool'])} />
 			<DefaultToolbarContent />
 		</DefaultToolbar>
 	)
@@ -103,6 +116,7 @@ const customAssetUrls: TLUiAssetUrlOverrides = {
 		'tool-profile': '/profile.svg',
 		'tool-photo': '/photo_pin.svg',
 		'tool-note': '/note.svg',
+		'tool-rope': '/rope.svg',
 	},
 }
 
@@ -250,10 +264,10 @@ export function DetectiveBoard() {
     try {
       const shapeIdObj = shapeId as any
       const shape = editor.getShape(shapeIdObj)
-      if (shape && shape.type === 'rope') {
+      if (shape && shape.type === 'temporal_rope') {
         editor.updateShape({
           id: shapeIdObj,
-          type: 'rope',
+          type: 'temporal_rope',
           props: {
             ...shape.props,
             confirmed: true,
@@ -271,18 +285,24 @@ export function DetectiveBoard() {
     try {
       const shapeIdObj = shapeId as any
       const shape = editor.getShape(shapeIdObj)
-      if (shape && shape.type === 'rope') {
+      if (shape && shape.type === 'temporal_rope') {
         // Delete the target item (toShapeId)
         const toShapeId = (shape.props as any).toShapeId
         if (toShapeId) {
           try {
-            editor.deleteShape(toShapeId as any)
+            // Check if the target shape still exists before attempting to delete
+            if (editor.getShape(toShapeId as any)) {
+              editor.deleteShape(toShapeId as any)
+            }
           } catch (err) {
             console.error('Error deleting target shape:', err)
           }
         }
         // Delete the rope itself
-        editor.deleteShape(shapeIdObj)
+        // Check if the rope shape still exists before attempting to delete
+        if (editor.getShape(shapeIdObj)) {
+          editor.deleteShape(shapeIdObj)
+        }
       }
     } catch (error) {
       console.error('Error discarding rope:', error)
@@ -357,7 +377,7 @@ export function DetectiveBoard() {
       // Update rope
       editor.updateShape({
         id: ropeShape.id,
-        type: 'rope',
+        type: 'temporal_rope',
         x: fromPinX,
         y: fromPinY,
         rotation: angle,
@@ -371,7 +391,7 @@ export function DetectiveBoard() {
     const handleShapeChange = () => {
       // Get all ropes
       const allShapes = editor.getCurrentPageShapes()
-      const ropes = allShapes.filter((shape: any) => shape.type === 'rope')
+      const ropes = allShapes.filter((shape: any) => shape.type === 'temporal_rope')
 
       // Update each rope
       ropes.forEach((rope: any) => {
@@ -544,7 +564,7 @@ export function DetectiveBoard() {
         const ropeId = createShapeId()
         editor.createShape({
           id: ropeId,
-          type: 'rope',
+          type: 'temporal_rope',
           x: ropeX,
           y: ropeY,
           rotation: angle,
@@ -593,7 +613,7 @@ export function DetectiveBoard() {
 
             editor.createShape({
               id: ropeId,
-              type: 'rope',
+              type: 'temporal_rope',
               x: ropeX,
               y: ropeY,
               rotation: angle,

@@ -325,7 +325,6 @@ export function DetectiveBoard() {
   const [isSearching, setIsSearching] = useState(false)
   const [isSherlockSearching, setIsSherlockSearching] = useState(false)
   const [leadBranchingFactor, setLeadBranchingFactor] = useState(2)
-  const [isPanelExpanded, setIsPanelExpanded] = useState(true)
 
   // Handle rope confirmation
   const handleRopeConfirm = useCallback((shapeId: string) => {
@@ -614,33 +613,55 @@ export function DetectiveBoard() {
     return { x: startX + 1200, y: startY }
   }, [])
 
-  // Mock function for reverse image search - replace with actual API call
-  const performReverseImageSearch = async (imageFile: File): Promise<any[]> => {
-    // TODO: Replace this with actual reverse image search API
-
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 2000))
-
-    // Mock data - generate enough profiles for max branching factor
-    const mockNames = ['John Doe', 'Jane Smith', 'Bob Johnson', 'Alice Williams', 'Charlie Brown', 'Diana Prince', 'Eve Davis', 'Frank Miller', 'Grace Lee', 'Henry Wilson']
-    const mockTitles = ['Senior Software Engineer', 'Product Manager', 'Data Scientist', 'UX Designer', 'Marketing Director', 'Sales Executive', 'Business Analyst', 'DevOps Engineer', 'Project Manager', 'CEO']
-    const mockCompanies = ['Tech Corp', 'StartupXYZ', 'Innovation Labs', 'Digital Solutions', 'Cloud Systems', 'AI Ventures', 'DataTech Inc', 'Creative Studio', 'Consulting Group', 'Enterprise Co']
-    const mockLocations = ['San Francisco, CA', 'New York, NY', 'Austin, TX', 'Seattle, WA', 'Boston, MA', 'Chicago, IL', 'Los Angeles, CA', 'Denver, CO', 'Miami, FL', 'Portland, OR']
-
-    return mockNames.map((name, index) => ({
-      name,
-      title: mockTitles[index],
-      company: mockCompanies[index],
-      linkedinUrl: `https://linkedin.com/in/${name.toLowerCase().replace(' ', '')}`,
-      imageUrl: URL.createObjectURL(imageFile),
-      email: `${name.toLowerCase().replace(' ', '.')}@${mockCompanies[index].toLowerCase().replace(/\s+/g, '')}.com`,
-      location: mockLocations[index],
-    }))
-  }
-
   const mainNotePosition = {x:0, y:0}
   function handleTextUpload(inputstr : string) {
     if (!editor) return
+
+    // Constants for note card dimensions
+    const noteCardWidth = 200
+    const noteCardHeight = 150
+
+    // Track messages and timeouts
+    let messageCount = 0
+    let timeoutId: NodeJS.Timeout | null = null
+    let zoomDebounceId: NodeJS.Timeout | null = null
+
+    // Helper to zoom to fit all content
+    const zoomToFitAll = () => {
+      const allShapes = editor.getCurrentPageShapes()
+      if (allShapes.length > 0) {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+        allShapes.forEach((shape: any) => {
+          const bounds = editor.getShapePageBounds(shape.id)
+          if (bounds) {
+            minX = Math.min(minX, bounds.minX)
+            minY = Math.min(minY, bounds.minY)
+            maxX = Math.max(maxX, bounds.maxX)
+            maxY = Math.max(maxY, bounds.maxY)
+          }
+        })
+        const padding = 100
+        const contentBox = new Box(minX - padding, minY - padding, maxX - minX + padding * 2, maxY - minY + padding * 2)
+        editor.zoomToBounds(contentBox, { animation: { duration: 500 }, targetZoom: Math.min(editor.getZoomLevel(), 1) })
+      }
+    }
+
+    // Debounced zoom
+    const debouncedZoom = () => {
+      if (zoomDebounceId) clearTimeout(zoomDebounceId)
+      zoomDebounceId = setTimeout(zoomToFitAll, 500)
+    }
+
+    // Reset timeout for connection monitoring
+    const resetTimeout = () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      timeoutId = setTimeout(() => {
+        console.log('[Sherlock] No message received in 30s, closing connection')
+        setIsSherlockSearching(false)
+        if (messageCount > 0) zoomToFitAll()
+      }, 30000)
+    }
+
     const original_id = createShapeId()
 		editor.createShape({
       id : original_id,
@@ -672,7 +693,7 @@ export function DetectiveBoard() {
         const data = JSON.parse(event.data);
         console.log(`Found NAMINTER DATA: ${data.name} at ${data.url}`);
         const new_id = createShapeId()
-		    editor.createShape<NoteCardUtil>({
+		    editor.createShape({
           id : new_id,
 		      type: 'note-card',
 		      x: 0,
@@ -699,7 +720,7 @@ export function DetectiveBoard() {
         )
 
         const resultNoteId = createShapeId()
-		    editor.createShape<NoteCardUtil>({
+		    editor.createShape({
           id : resultNoteId,
 		      type: 'note-card',
 		      x: position.x,
@@ -791,7 +812,7 @@ export function DetectiveBoard() {
         )
 
         const resultNoteId = createShapeId()
-		    editor.createShape<NoteCardUtil>({
+		    editor.createShape({
           id : resultNoteId,
 		      type: 'note-card',
 		      x: position.x,
@@ -926,24 +947,19 @@ export function DetectiveBoard() {
         })
       }
 
-      // Perform reverse image search
-      const searchResults = await performReverseImageSearch(draggedPic)
-
-      // Limit results based on branching factor slider
-      const limitedResults = searchResults.slice(0, leadBranchingFactor)
+      // Initialize tracking for streaming results
+      let profileCount = 0
+      const profileShapesMap: Map<number, { id: string; x: number; y: number; profile: any }> = new Map()
 
       // Add a note card with search summary - position directly under photo pin
-      // Create this BEFORE profile cards so they avoid it
       const noteCardWidth = 200
       const noteCardHeight = 150
-      const noteMargin = 12 // Slim margin between photo pin and note card
-
-      // Calculate position: centered under the photo pin with a few pixels to the left
-      const leftOffset = 10 // Slight offset to the left
+      const noteMargin = 12
+      const leftOffset = 10
       const noteX = photoPinX + (photoPinSize - noteCardWidth) / 2 - leftOffset
       const noteY = photoPinY + photoPinSize + noteMargin
       const noteId = createShapeId()
-      
+
       editor.createShape({
         id: noteId,
         type: 'note-card',
@@ -952,33 +968,29 @@ export function DetectiveBoard() {
         props: {
           w: noteCardWidth,
           h: noteCardHeight,
-          text: `Created ${limitedResults.length} lead${limitedResults.length !== 1 ? 's' : ''}\n\nSearch completed: ${new Date().toLocaleTimeString()}`,
+          text: `Searching for LinkedIn profiles...\n\nStarted: ${new Date().toLocaleTimeString()}`,
           color: '#ffeb3b',
         },
       })
 
-      // Store profile shapes for creating connections
-      const profileShapes: Array<{ id: string; x: number; y: number; profile: any }> = []
-
-      // Profile card dimensions (declared early for use in all scopes)
+      // Profile card dimensions
       const profileCardWidth = 280
       const profileCardHeight = 200
-      const cardPadding = 80 // Healthy padding between cards
+      const cardPadding = 80
 
-      // Radial layout: randomize starting angle and direction for each photo upload
-      const startAngle = Math.random() * 2 * Math.PI // Random starting angle (0 to 2π)
-      const direction = Math.random() < 0.5 ? 1 : -1 // Random direction: 1 for counterclockwise, -1 for clockwise
-      const radius = 450 // Distance from photo pin center
-      const angleSpacing = limitedResults.length > 1 ? (Math.PI / 3) / (limitedResults.length - 1) : 0 // Fan out over 60 degrees
-
-      // Photo pin center for positioning
+      // Radial layout parameters
+      const startAngle = Math.random() * 2 * Math.PI
+      const direction = Math.random() < 0.5 ? 1 : -1
+      const radius = 450
       const photoPinCenterX = photoPinX + photoPinSize / 2
       const photoPinCenterY = photoPinY + photoPinSize / 2
 
-      limitedResults.forEach((profile, index) => {
+      // Create profile card from streaming data
+      const createProfileCard = (profile: any, index: number) => {
         const profileId = createShapeId()
 
         // Calculate angle for this profile card
+        const angleSpacing = Math.PI / 6 // Fixed spacing between profiles
         const angle = startAngle + (direction * angleSpacing * index)
 
         // Calculate ideal position using polar coordinates
@@ -1003,22 +1015,19 @@ export function DetectiveBoard() {
           props: {
             w: profileCardWidth,
             h: profileCardHeight,
-            name: profile.name,
-            title: profile.title,
-            company: profile.company,
-            linkedinUrl: profile.linkedinUrl,
-            imageUrl: profile.imageUrl,
-            email: profile.email,
-            location: profile.location,
+            name: profile.name || 'Unknown',
+            title: profile.title || '',
+            company: profile.company || '',
+            linkedinUrl: profile.linkedinUrl || '',
+            imageUrl: '',
+            email: profile.email || '',
+            location: profile.location || '',
           },
         })
 
-        profileShapes.push({ id: profileId, x: position.x, y: position.y, profile })
+        profileShapesMap.set(index, { id: profileId, x: position.x, y: position.y, profile })
 
         // Create red rope connection from photo pin to profile pin
-        // Calculate pin positions (at bottom of pin balls)
-        // Photo pin: bottom of ball at top + 20px (4px offset + 16px height)
-        // Profile card pin: bottom of ball at top + 28px (8px offset + 20px height)
         const photoPinAnchorX = photoPinX + photoPinSize / 2
         const photoPinAnchorY = photoPinY + 20
         const profilePinCenterX = position.x + profileCardWidth / 2
@@ -1050,91 +1059,174 @@ export function DetectiveBoard() {
             toShapeId: profileId,
           },
         })
-      })
 
-      // Create ropes between profiles that have things in common
-      for (let i = 0; i < profileShapes.length; i++) {
-        for (let j = i + 1; j < profileShapes.length; j++) {
-          const profile1 = profileShapes[i]
-          const profile2 = profileShapes[j]
-          
-          // Check for commonalities
-          const hasCommonCompany = profile1.profile.company === profile2.profile.company
-          const hasCommonLocation = profile1.profile.location === profile2.profile.location
-          const hasCommonDomain = profile1.profile.email?.split('@')[1] === profile2.profile.email?.split('@')[1]
-          
-          if (hasCommonCompany || hasCommonLocation || hasCommonDomain) {
-            const ropeId = createShapeId()
+        profileCount++
+      }
 
-            // Calculate pin positions (at bottom of pin balls)
-            // Profile card pin: bottom of ball at top + 28px (8px offset + 20px height)
-            const profile1PinCenterX = profile1.x + profileCardWidth / 2
-            const profile1PinCenterY = profile1.y + 28
-            const profile2PinCenterX = profile2.x + profileCardWidth / 2
-            const profile2PinCenterY = profile2.y + 28
+      // Start EventSource streaming
+      const eventSource = new EventSource(
+        `http://127.0.0.1:5000/api/process-image-leads/${draggedPic.name}`
+      )
 
-            // Calculate angle and distance between pins
-            const dx = profile2PinCenterX - profile1PinCenterX
-            const dy = profile2PinCenterY - profile1PinCenterY
-            const ropeAngle = Math.atan2(dy, dx)
-            const ropeLength = Math.sqrt(dx * dx + dy * dy)
+      eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data)
+        console.log('[LinkedIn] Received message:', data)
 
-            // Position rope starting at profile1 pin
-            const ropeX = profile1PinCenterX
-            const ropeY = profile1PinCenterY
+        if (data.status === 'starting') {
+          console.log(`[LinkedIn] Starting to process ${data.total} profiles`)
+          editor.updateShape({
+            id: noteId,
+            type: 'note-card',
+            props: {
+              w: noteCardWidth,
+              h: noteCardHeight,
+              text: `Found ${data.total} LinkedIn profile${data.total !== 1 ? 's' : ''}\n\nScraping profiles...`,
+              color: '#ffeb3b',
+            },
+          })
+        }
 
-            editor.createShape({
-              id: ropeId,
-              type: 'temporal_rope',
-              x: ropeX,
-              y: ropeY,
-              rotation: ropeAngle,
-              props: {
-                w: ropeLength,
-                h: 3,
-                thickness: 3,
-                confirmed: false,
-                fromShapeId: profile1.id,
-                toShapeId: profile2.id,
-              },
-            })
+        if (data.status === 'profile') {
+          console.log(`[LinkedIn] Creating profile card for index ${data.index}`)
+          createProfileCard(data.profile, data.index)
+
+          // Update note card with progress
+          editor.updateShape({
+            id: noteId,
+            type: 'note-card',
+            props: {
+              w: noteCardWidth,
+              h: noteCardHeight,
+              text: `Scraped ${profileCount} profile${profileCount !== 1 ? 's' : ''}\n\nProcessing...`,
+              color: '#ffeb3b',
+            },
+          })
+        }
+
+        if (data.status === 'error') {
+          console.error(`[LinkedIn] Error at index ${data.index}:`, data.error)
+        }
+
+        if (data.status === 'complete') {
+          console.log('[LinkedIn] Streaming complete')
+          eventSource.close()
+          setIsSearching(false)
+
+          // Update final note
+          editor.updateShape({
+            id: noteId,
+            type: 'note-card',
+            props: {
+              w: noteCardWidth,
+              h: noteCardHeight,
+              text: `Created ${profileCount} lead${profileCount !== 1 ? 's' : ''}\n\nCompleted: ${new Date().toLocaleTimeString()}`,
+              color: '#ffeb3b',
+            },
+          })
+
+          // Create ropes between profiles with commonalities
+          const profileShapes = Array.from(profileShapesMap.values())
+          for (let i = 0; i < profileShapes.length; i++) {
+            for (let j = i + 1; j < profileShapes.length; j++) {
+              const profile1 = profileShapes[i]
+              const profile2 = profileShapes[j]
+
+              // Check for commonalities
+              const hasCommonCompany = profile1.profile.company && profile2.profile.company &&
+                                      profile1.profile.company === profile2.profile.company
+              const hasCommonLocation = profile1.profile.location && profile2.profile.location &&
+                                       profile1.profile.location === profile2.profile.location
+              const hasCommonDomain = profile1.profile.email && profile2.profile.email &&
+                                     profile1.profile.email.split('@')[1] === profile2.profile.email.split('@')[1]
+
+              if (hasCommonCompany || hasCommonLocation || hasCommonDomain) {
+                const ropeId = createShapeId()
+
+                // Calculate pin positions
+                const profile1PinCenterX = profile1.x + profileCardWidth / 2
+                const profile1PinCenterY = profile1.y + 28
+                const profile2PinCenterX = profile2.x + profileCardWidth / 2
+                const profile2PinCenterY = profile2.y + 28
+
+                // Calculate angle and distance between pins
+                const dx = profile2PinCenterX - profile1PinCenterX
+                const dy = profile2PinCenterY - profile1PinCenterY
+                const ropeAngle = Math.atan2(dy, dx)
+                const ropeLength = Math.sqrt(dx * dx + dy * dy)
+
+                // Position rope starting at profile1 pin
+                const ropeX = profile1PinCenterX
+                const ropeY = profile1PinCenterY
+
+                editor.createShape({
+                  id: ropeId,
+                  type: 'temporal_rope',
+                  x: ropeX,
+                  y: ropeY,
+                  rotation: ropeAngle,
+                  props: {
+                    w: ropeLength,
+                    h: 3,
+                    thickness: 3,
+                    confirmed: false,
+                    fromShapeId: profile1.id,
+                    toShapeId: profile2.id,
+                  },
+                })
+              }
+            }
           }
+
+          // Auto-zoom to fit all elements
+          setTimeout(() => {
+            const allShapes = editor.getCurrentPageShapes()
+            if (allShapes.length > 0) {
+              let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+
+              allShapes.forEach((shape: any) => {
+                const bounds = editor.getShapePageBounds(shape.id)
+                if (bounds) {
+                  minX = Math.min(minX, bounds.minX)
+                  minY = Math.min(minY, bounds.minY)
+                  maxX = Math.max(maxX, bounds.maxX)
+                  maxY = Math.max(maxY, bounds.maxY)
+                }
+              })
+
+              const padding = 100
+              const contentBox = new Box(
+                minX - padding,
+                minY - padding,
+                maxX - minX + padding * 2,
+                maxY - minY + padding * 2
+              )
+
+              editor.zoomToBounds(contentBox, {
+                animation: { duration: 500 },
+                targetZoom: Math.min(editor.getZoomLevel(), 1)
+              })
+            }
+          }, 100)
         }
       }
 
-      // Auto-zoom to fit all elements on screen
-      setTimeout(() => {
-        const allShapes = editor.getCurrentPageShapes()
-        if (allShapes.length > 0) {
-          // Calculate bounding box of all shapes
-          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+      eventSource.onerror = (error) => {
+        console.error('[LinkedIn] EventSource error:', error)
+        eventSource.close()
+        setIsSearching(false)
 
-          allShapes.forEach((shape: any) => {
-            const bounds = editor.getShapePageBounds(shape.id)
-            if (bounds) {
-              minX = Math.min(minX, bounds.minX)
-              minY = Math.min(minY, bounds.minY)
-              maxX = Math.max(maxX, bounds.maxX)
-              maxY = Math.max(maxY, bounds.maxY)
-            }
-          })
-
-          // Add padding
-          const padding = 100
-          const contentBox = new Box(
-            minX - padding,
-            minY - padding,
-            maxX - minX + padding * 2,
-            maxY - minY + padding * 2
-          )
-
-          // Zoom to fit with animation
-          editor.zoomToBounds(contentBox, {
-            animation: { duration: 500 },
-            targetZoom: Math.min(editor.getZoomLevel(), 1) // Don't zoom in more than 100%
-          })
-        }
-      }, 100) // Small delay to ensure all shapes are rendered
+        // Update note with error
+        editor.updateShape({
+          id: noteId,
+          type: 'note-card',
+          props: {
+            w: noteCardWidth,
+            h: noteCardHeight,
+            text: `Error: Connection failed\n\nPlease try again.`,
+            color: '#ffcdd2',
+          },
+        })
+      }
 
     } catch (error) {
       console.error('Error processing image:', error)
@@ -1188,7 +1280,6 @@ export function DetectiveBoard() {
         onImageUpload={handleImageUpload}
         onTextSearch={handleTextUpload}
         isSearching={isSearching}
-        onExpandChange={setIsPanelExpanded}
       />
       {/* Lead Branching Factor Slider */}
       <div

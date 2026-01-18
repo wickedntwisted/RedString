@@ -38,6 +38,7 @@ const customShapes = [
 	PhotoPinUtil,
 	NoteCardUtil,
 	TemporalRopeUtil,
+	RopeUtil,
 ]
 
 const customTool = [
@@ -85,7 +86,7 @@ const customUiOverrides: TLUiOverrides = {
 				id: 'rope_tool',
         label: 'Rope Tool',
         icon: 'tool-rope',
-        kbd: 'p',
+        kbd: 'r',
         onSelect() {
           editor.setCurrentTool('rope_tool')
         },
@@ -264,10 +265,10 @@ export function DetectiveBoard() {
     try {
       const shapeIdObj = shapeId as any
       const shape = editor.getShape(shapeIdObj)
-      if (shape && shape.type === 'temporal_rope') {
+      if (shape && (shape.type === 'temporal_rope' || shape.type === 'rope')) {
         editor.updateShape({
           id: shapeIdObj,
-          type: 'temporal_rope',
+          type: shape.type,
           props: {
             ...shape.props,
             confirmed: true,
@@ -285,23 +286,35 @@ export function DetectiveBoard() {
     try {
       const shapeIdObj = shapeId as any
       const shape = editor.getShape(shapeIdObj)
-      if (shape && shape.type === 'temporal_rope') {
-        // Delete the target item (toShapeId)
-        const toShapeId = (shape.props as any).toShapeId
-        if (toShapeId) {
-          try {
-            // Check if the target shape still exists before attempting to delete
-            if (editor.getShape(toShapeId as any)) {
-              editor.deleteShape(toShapeId as any)
+      if (shape) {
+        if (shape.type === 'temporal_rope') {
+          // Delete the target item (toShapeId)
+          const toShapeId = (shape.props as any).toShapeId
+          if (toShapeId) {
+            try {
+              // Check if the target shape still exists before attempting to delete
+              if (editor.getShape(toShapeId as any)) {
+                editor.deleteShape(toShapeId as any)
+              }
+            } catch (err) {
+              console.error('Error deleting target shape:', err)
             }
-          } catch (err) {
-            console.error('Error deleting target shape:', err)
           }
-        }
-        // Delete the rope itself
-        // Check if the rope shape still exists before attempting to delete
-        if (editor.getShape(shapeIdObj)) {
-          editor.deleteShape(shapeIdObj)
+          // Delete the rope itself
+          // Check if the rope shape still exists before attempting to delete
+          if (editor.getShape(shapeIdObj)) {
+            editor.deleteShape(shapeIdObj)
+          }
+        } else if (shape.type === 'rope') {
+          // For 'rope' type, just unconfirm, do not delete
+          editor.updateShape({
+            id: shapeIdObj,
+            type: 'rope',
+            props: {
+              ...shape.props,
+              confirmed: false,
+            },
+          })
         }
       }
     } catch (error) {
@@ -351,6 +364,10 @@ export function DetectiveBoard() {
         const profileCardWidth = fromShape.props.w
         fromPinX = fromShape.x + profileCardWidth / 2
         fromPinY = fromShape.y + 18
+      } else if (fromShape.type === 'note-card') {
+        const noteCardWidth = fromShape.props.w
+        fromPinX = fromShape.x + noteCardWidth / 2
+        fromPinY = fromShape.y + 18
       } else {
         return // Unknown shape type
       }
@@ -363,6 +380,10 @@ export function DetectiveBoard() {
       } else if (toShape.type === 'profile-card') {
         const profileCardWidth = toShape.props.w
         toPinX = toShape.x + profileCardWidth / 2
+        toPinY = toShape.y + 18
+      } else if (toShape.type === 'note-card') {
+        const noteCardWidth = toShape.props.w
+        toPinX = toShape.x + noteCardWidth / 2
         toPinY = toShape.y + 18
       } else {
         return // Unknown shape type
@@ -377,7 +398,7 @@ export function DetectiveBoard() {
       // Update rope
       editor.updateShape({
         id: ropeShape.id,
-        type: 'temporal_rope',
+        type: ropeShape.type,
         x: fromPinX,
         y: fromPinY,
         rotation: angle,
@@ -391,7 +412,7 @@ export function DetectiveBoard() {
     const handleShapeChange = () => {
       // Get all ropes
       const allShapes = editor.getCurrentPageShapes()
-      const ropes = allShapes.filter((shape: any) => shape.type === 'temporal_rope')
+      const ropes = allShapes.filter((shape: any) => shape.type === 'temporal_rope' || shape.type === 'rope')
 
       // Update each rope
       ropes.forEach((rope: any) => {

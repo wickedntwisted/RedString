@@ -1,18 +1,13 @@
-import { 
+import {
     StateNode,
-    TLTextShape,
-    Tldraw,
     createShapeId,
-    toRichText
+    TLShapeId,
 } from 'tldraw'
-import 'tldraw/tldraw.css'
-import { RopeUtil } from '../custom_shapes/Rope'
-
 const OFFSET = 12
 
 export class RopeTool extends StateNode {
 	static override id = 'rope_tool'
-	current_rope_id = undefined
+	current_rope_id: TLShapeId | undefined = undefined
 
 	override onEnter() {
         console.log("ENTERED")
@@ -28,8 +23,11 @@ export class RopeTool extends StateNode {
 			console.log("HIT SHAPE:", hitShapeId)
 			if (this.current_rope_id){
 				this.editor.updateShape({
-					id : this.current_rope_id,
-					toShapeId: hitShapeId,
+					id: this.current_rope_id!,
+					type: 'rope',
+					props: {
+						toShapeId: hitShapeId,
+					},
 				})
 				this.current_rope_id = undefined
 			}
@@ -40,7 +38,9 @@ export class RopeTool extends StateNode {
 					type: 'rope',
 					x: currentPagePoint.x - OFFSET,
 					y: currentPagePoint.y - OFFSET,
-					fromShapeId: hitShapeId, 
+					props: {
+						fromShapeId: hitShapeId,
+					}, 
 				})
 			}
 		}

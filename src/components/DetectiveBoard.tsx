@@ -27,6 +27,7 @@ import { ProfileCardTool } from '../custom_tools/ProfileCardTool'
 import { PhotoPinUtil } from '../custom_shapes/PhotoPin'
 import { PhotoPinTool } from '../custom_tools/PhotoPinTool'
 import { NoteCardUtil } from '../custom_shapes/NoteCard'
+import { NoteCardTool } from '../custom_tools/NoteCardTool'
 import { RopeUtil } from '../custom_shapes/rope'
 
 // Custom shapes configuration - must be an array
@@ -39,7 +40,8 @@ const customShapes = [
 
 const customTool = [
   ProfileCardTool,
-  PhotoPinTool
+  PhotoPinTool,
+  NoteCardTool
 ]
 
 const bg_image = new window.Image()
@@ -67,6 +69,15 @@ const customUiOverrides: TLUiOverrides = {
           editor.setCurrentTool('photo_pin')
         },
       },
+			note_card: {
+				id: 'note_card',
+        label: 'Note Tool',
+        icon: 'tool-note',
+        kbd: 'l',
+        onSelect() {
+          editor.setCurrentTool('note_card')
+        },
+      },
 			...Object.fromEntries(
 				Object.entries(tools).filter(([id]) => whitelist.has(id))
 			)
@@ -81,6 +92,7 @@ function CustomToolbar() {
 		<DefaultToolbar>
       <TldrawUiMenuItem {...tools['profile_card']} isSelected={useIsToolSelected(tools['profile_card'])} />
       <TldrawUiMenuItem {...tools['photo_pin']} isSelected={useIsToolSelected(tools['photo_pin'])} />
+      <TldrawUiMenuItem {...tools['note_card']} isSelected={useIsToolSelected(tools['note_card'])} />
 			<DefaultToolbarContent />
 		</DefaultToolbar>
 	)
@@ -90,6 +102,7 @@ const customAssetUrls: TLUiAssetUrlOverrides = {
 	icons: {
 		'tool-profile': '/profile.svg',
 		'tool-photo': '/photo_pin.svg',
+		'tool-note': '/note.svg',
 	},
 }
 

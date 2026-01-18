@@ -1150,7 +1150,9 @@ function AssetTracker() {
 export function DetectiveBoard() {
   const [editor, setEditor] = useState<Editor | null>(null)
   const [isSearching, setIsSearching] = useState(false)
+  const [isSherlockSearching, setIsSherlockSearching] = useState(false)
   const [leadBranchingFactor, setLeadBranchingFactor] = useState(2)
+  const [isPanelExpanded, setIsPanelExpanded] = useState(true)
 
   // Handle rope confirmation
   const handleRopeConfirm = useCallback((shapeId: string) => {
@@ -1240,7 +1242,7 @@ export function DetectiveBoard() {
     }
   }, [handleRopeConfirm, handleRopeDiscard])
 
-  // Update rope positions when connected shapes move
+  // Update rope positions when connected shapes move and clean up orphaned ropes
   React.useEffect(() => {
     if (!editor) return
 
@@ -1307,7 +1309,10 @@ export function DetectiveBoard() {
       const allShapes = editor.getCurrentPageShapes()
       const ropes = allShapes.filter((shape: any) => shape.type === 'temporal_rope' || shape.type === 'rope')
 
-      // Update each rope
+      // Track ropes to delete
+      const ropesToDelete: string[] = []
+
+      // Update each rope or mark for deletion if orphaned
       ropes.forEach((rope: any) => {
         const fromShapeId = rope.props.fromShapeId
         const toShapeId = rope.props.toShapeId
@@ -1316,11 +1321,20 @@ export function DetectiveBoard() {
           const fromShape = editor.getShape(fromShapeId as any)
           const toShape = editor.getShape(toShapeId as any)
 
-          if (fromShape && toShape) {
+          // If either connected shape is missing, mark rope for deletion
+          if (!fromShape || !toShape) {
+            ropesToDelete.push(rope.id)
+          } else {
+            // Both shapes exist, update rope position
             updateRopePosition(rope, fromShape, toShape)
           }
         }
       })
+
+      // Delete orphaned ropes
+      if (ropesToDelete.length > 0) {
+        editor.deleteShapes(ropesToDelete as any)
+      }
     }
 
     // Listen to shape changes
@@ -1452,6 +1466,9 @@ export function DetectiveBoard() {
   }
 
   function handleTextUpload(inputstr : string) {
+    // Start sherlock search
+    setIsSherlockSearching(true)
+
     // Calculate position for the initial note card
     const noteCardWidth = 180
     const noteCardHeight = 180
@@ -1583,7 +1600,23 @@ export function DetectiveBoard() {
     const eventSource = new EventSource('http://127.0.0.1:5000/api/search_sherlock/'+inputstr);
     eventSource.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        console.log(`Found: ${data.name} at ${data.url}`);
+        console.log('[Sherlock] Received message:', data);
+
+        // Check if this is a completion message
+        if (data.done) {
+          console.log('[Sherlock] Received completion signal');
+          if (timeoutId) clearTimeout(timeoutId)
+          if (zoomDebounceId) clearTimeout(zoomDebounceId)
+          eventSource.close();
+          setIsSherlockSearching(false);
+          // Final zoom to fit everything
+          zoomToFitAll();
+          return;
+        }
+
+        console.log(`[Sherlock] Found: ${data.name} at ${data.url}`);
+        messageCount++
+        resetTimeout()
 
         // Calculate angle for this result
         const angle = startAngle + (direction * angleSpacing * resultIndex)
@@ -1651,10 +1684,25 @@ export function DetectiveBoard() {
         })
 
         resultIndex++
+
+        // Zoom out to fit all content after each new result (debounced)
+        debouncedZoom()
     };
-    eventSource.onerror = () => {
+
+    eventSource.onerror = (error) => {
+        console.log('[Sherlock] EventSource error:', error);
+        if (timeoutId) clearTimeout(timeoutId)
+        if (zoomDebounceId) clearTimeout(zoomDebounceId)
         eventSource.close();
+        setIsSherlockSearching(false)
+        // Only zoom if we got some results
+        if (messageCount > 0) {
+          zoomToFitAll()
+        }
     };
+
+    // Start initial timeout
+    resetTimeout()
 
   }
   const handleImageUpload = useCallback(async (file: File | string) => {
@@ -1990,6 +2038,7 @@ export function DetectiveBoard() {
         onImageUpload={handleImageUpload}
         onTextSearch={handleTextUpload}
         isSearching={isSearching}
+        onExpandChange={setIsPanelExpanded}
       />
       {/* Lead Branching Factor Slider */}
       <div
@@ -2038,6 +2087,62 @@ export function DetectiveBoard() {
           }}
         />
       </div>
+
+      {/* Sherlock Searching Indicator */}
+      {isSherlockSearching && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(139, 69, 19, 0.95)',
+            borderRadius: '12px',
+            padding: '16px 24px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+            backdropFilter: 'blur(10px)',
+            border: '2px solid rgba(220, 38, 38, 0.5)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            animation: 'sherlockFadeIn 0.3s ease-in',
+          }}
+        >
+          <div
+            style={{
+              width: '24px',
+              height: '24px',
+              border: '3px solid rgba(255, 255, 255, 0.3)',
+              borderTop: '3px solid #fff',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+            }}
+          />
+          <span
+            style={{
+              color: '#fff',
+              fontSize: '14px',
+              fontWeight: '600',
+              letterSpacing: '0.5px',
+            }}
+          >
+            Sherlock is investigating...
+          </span>
+          <style>
+            {`
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+              @keyframes sherlockFadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+              }
+            `}
+          </style>
+        </div>
+      )}
     </div>
   )
 }

@@ -20,7 +20,7 @@ type IRopeShape = TLBaseShape<
 	}
 >
 
-export class Rope extends ShapeUtil<IRopeShape> {
+export class RopeUtil extends ShapeUtil<IRopeShape> {
 	static override type = 'rope' as const
 	
 	static override props: RecordProps<IRopeShape> = {
@@ -44,13 +44,25 @@ export class Rope extends ShapeUtil<IRopeShape> {
 	override canEdit() {
 		return false
 	}
-	
+
 	override canResize() {
-		return true
+		return false
 	}
 
 	override isAspectRatioLocked() {
 		return false
+	}
+
+	override hideSelectionBoundsBg() {
+		return true
+	}
+
+	override hideRotateHandle() {
+		return true
+	}
+
+	override hideResizeHandles() {
+		return true
 	}
 
 	getGeometry(shape: IRopeShape): Geometry2d {
@@ -75,9 +87,8 @@ export class Rope extends ShapeUtil<IRopeShape> {
 						width: shape.props.w,
 						height: thickness,
 						position: 'relative',
-						opacity,
-						transition: 'opacity 0.3s ease',
 						transformOrigin: 'left center', // Rotate from the left edge (start point)
+						pointerEvents: 'none',
 					}}
 					onPointerDown={(e) => {
 						// Only prevent selection if buttons are visible (not confirmed)
@@ -87,7 +98,7 @@ export class Rope extends ShapeUtil<IRopeShape> {
 					}}
 				>
 					{/* Red string with subtle texture */}
-					<div 
+					<div
 						className="rope-string"
 						style={{
 							position: 'absolute',
@@ -96,20 +107,40 @@ export class Rope extends ShapeUtil<IRopeShape> {
 							left: 0,
 							top: 0,
 							backgroundColor: redColor,
-							boxShadow: confirmed 
-								? '0 0 2px rgba(220, 38, 38, 0.5)' 
+							boxShadow: confirmed
+								? '0 0 2px rgba(220, 38, 38, 0.5)'
 								: '0 0 1px rgba(220, 38, 38, 0.3)',
 							borderRadius: '2px',
+							opacity,
+							transition: 'opacity 0.3s ease',
+							pointerEvents: confirmed ? 'auto' : 'none',
 						}}
 					/>
-						</div>
-					)}
+					{/* Subtle highlight for depth */}
+					<div
+						className="rope-highlight"
+						style={{
+							position: 'absolute',
+							width: 'calc(100% - 12px)',
+							height: '30%',
+							top: 0,
+							left: 0,
+							background: `linear-gradient(
+								180deg,
+								rgba(255, 255, 255, 0.2) 0%,
+								transparent 100%
+							)`,
+							pointerEvents: 'none',
+							opacity,
+							transition: 'opacity 0.3s ease',
+						}}
+					/>
 				</div>
 			</HTMLContainer>
 		)
 	}
 
 	override indicator(shape: IRopeShape) {
-		return <rect width={shape.props.w} height={shape.props.h || shape.props.thickness || 3} />
+		return null
 	}
 }

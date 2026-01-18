@@ -883,20 +883,24 @@ import { PhotoPinUtil } from '../custom_shapes/PhotoPin'
 import { PhotoPinTool } from '../custom_tools/PhotoPinTool'
 import { NoteCardUtil } from '../custom_shapes/NoteCard'
 import { NoteCardTool } from '../custom_tools/NoteCardTool'
-import { RopeUtil } from '../custom_shapes/rope'
+import { TemporalRopeUtil } from '../custom_shapes/TemporalRope'
+import { RopeUtil } from '../custom_shapes/Rope'
+import { RopeTool } from '../custom_tools/RopeTool'
 
 // Custom shapes configuration - must be an array
 const customShapes = [
 	ProfileCardUtil,
 	PhotoPinUtil,
 	NoteCardUtil,
+	TemporalRopeUtil,
 	RopeUtil,
 ]
 
 const customTool = [
   ProfileCardTool,
   PhotoPinTool,
-  NoteCardTool
+  NoteCardTool,
+  RopeTool
 ]
 
 // Helper function to get the url for dropped web images
@@ -936,7 +940,7 @@ bg_image.src = '/corkboard.webp'
 
 const customUiOverrides: TLUiOverrides = {
 	tools: (editor: any, tools: any) => {
-		const whitelist = new Set(['select', 'hand', 'laser', 'eraser', 'draw', 'arrow', 'note', 'asset'])
+		const whitelist = new Set(['select', 'hand', 'laser', 'eraser', 'draw', 'arrow', 'asset'])
 		return {
 			profile_card: {
 				id: 'profile_card',
@@ -965,6 +969,15 @@ const customUiOverrides: TLUiOverrides = {
           editor.setCurrentTool('note_card')
         },
       },
+			rope_tool: {
+				id: 'rope_tool',
+        label: 'Rope Tool',
+        icon: 'tool-rope',
+        kbd: 'r',
+        onSelect() {
+          editor.setCurrentTool('rope_tool')
+        },
+      },
 			...Object.fromEntries(
 				Object.entries(tools).filter(([id]) => whitelist.has(id))
 			)
@@ -980,6 +993,7 @@ function CustomToolbar() {
       <TldrawUiMenuItem {...tools['profile_card']} isSelected={useIsToolSelected(tools['profile_card'])} />
       <TldrawUiMenuItem {...tools['photo_pin']} isSelected={useIsToolSelected(tools['photo_pin'])} />
       <TldrawUiMenuItem {...tools['note_card']} isSelected={useIsToolSelected(tools['note_card'])} />
+      <TldrawUiMenuItem {...tools['rope_tool']} isSelected={useIsToolSelected(tools['rope_tool'])} />
 			<DefaultToolbarContent />
 		</DefaultToolbar>
 	)
@@ -990,6 +1004,7 @@ const customAssetUrls: TLUiAssetUrlOverrides = {
 		'tool-profile': '/profile.svg',
 		'tool-photo': '/photo_pin.svg',
 		'tool-note': '/note.svg',
+		'tool-rope': '/rope.svg',
 	},
 }
 
@@ -1135,6 +1150,7 @@ function AssetTracker() {
 export function DetectiveBoard() {
   const [editor, setEditor] = useState<Editor | null>(null)
   const [isSearching, setIsSearching] = useState(false)
+  const [leadBranchingFactor, setLeadBranchingFactor] = useState(2)
 
   // Handle rope confirmation
   const handleRopeConfirm = useCallback((shapeId: string) => {
@@ -1142,10 +1158,10 @@ export function DetectiveBoard() {
     try {
       const shapeIdObj = shapeId as any
       const shape = editor.getShape(shapeIdObj)
-      if (shape && shape.type === 'rope') {
+      if (shape && (shape.type === 'temporal_rope' || shape.type === 'rope')) {
         editor.updateShape({
           id: shapeIdObj,
-          type: 'rope',
+          type: shape.type,
           props: {
             ...shape.props,
             confirmed: true,
@@ -1163,18 +1179,36 @@ export function DetectiveBoard() {
     try {
       const shapeIdObj = shapeId as any
       const shape = editor.getShape(shapeIdObj)
-      if (shape && shape.type === 'rope') {
-        // Delete the target item (toShapeId)
-        const toShapeId = (shape.props as any).toShapeId
-        if (toShapeId) {
-          try {
-            editor.deleteShape(toShapeId as any)
-          } catch (err) {
-            console.error('Error deleting target shape:', err)
+      if (shape) {
+        if (shape.type === 'temporal_rope') {
+          // Delete the target item (toShapeId)
+          const toShapeId = (shape.props as any).toShapeId
+          if (toShapeId) {
+            try {
+              // Check if the target shape still exists before attempting to delete
+              if (editor.getShape(toShapeId as any)) {
+                editor.deleteShape(toShapeId as any)
+              }
+            } catch (err) {
+              console.error('Error deleting target shape:', err)
+            }
           }
+          // Delete the rope itself
+          // Check if the rope shape still exists before attempting to delete
+          if (editor.getShape(shapeIdObj)) {
+            editor.deleteShape(shapeIdObj)
+          }
+        } else if (shape.type === 'rope') {
+          // For 'rope' type, just unconfirm, do not delete
+          editor.updateShape({
+            id: shapeIdObj,
+            type: 'rope',
+            props: {
+              ...shape.props,
+              confirmed: false,
+            },
+          })
         }
-        // Delete the rope itself
-        editor.deleteShape(shapeIdObj)
       }
     } catch (error) {
       console.error('Error discarding rope:', error)
@@ -1218,10 +1252,14 @@ export function DetectiveBoard() {
       if (fromShape.type === 'photo-pin') {
         const photoPinWidth = fromShape.props.w
         fromPinX = fromShape.x + photoPinWidth / 2
-        fromPinY = fromShape.y + 12
+        fromPinY = fromShape.y + 20
       } else if (fromShape.type === 'profile-card') {
         const profileCardWidth = fromShape.props.w
         fromPinX = fromShape.x + profileCardWidth / 2
+        fromPinY = fromShape.y + 28
+      } else if (fromShape.type === 'note-card') {
+        const noteCardWidth = fromShape.props.w
+        fromPinX = fromShape.x + noteCardWidth / 2
         fromPinY = fromShape.y + 18
       } else {
         return // Unknown shape type
@@ -1231,10 +1269,14 @@ export function DetectiveBoard() {
       if (toShape.type === 'photo-pin') {
         const photoPinWidth = toShape.props.w
         toPinX = toShape.x + photoPinWidth / 2
-        toPinY = toShape.y + 12
+        toPinY = toShape.y + 20
       } else if (toShape.type === 'profile-card') {
         const profileCardWidth = toShape.props.w
         toPinX = toShape.x + profileCardWidth / 2
+        toPinY = toShape.y + 28
+      } else if (toShape.type === 'note-card') {
+        const noteCardWidth = toShape.props.w
+        toPinX = toShape.x + noteCardWidth / 2
         toPinY = toShape.y + 18
       } else {
         return // Unknown shape type
@@ -1249,7 +1291,7 @@ export function DetectiveBoard() {
       // Update rope
       editor.updateShape({
         id: ropeShape.id,
-        type: 'rope',
+        type: ropeShape.type,
         x: fromPinX,
         y: fromPinY,
         rotation: angle,
@@ -1263,7 +1305,7 @@ export function DetectiveBoard() {
     const handleShapeChange = () => {
       // Get all ropes
       const allShapes = editor.getCurrentPageShapes()
-      const ropes = allShapes.filter((shape: any) => shape.type === 'rope')
+      const ropes = allShapes.filter((shape: any) => shape.type === 'temporal_rope' || shape.type === 'rope')
 
       // Update each rope
       ropes.forEach((rope: any) => {
@@ -1392,26 +1434,21 @@ export function DetectiveBoard() {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 2000))
 
-    // Mock data - replace with actual API response
-    return [
-      {
-        name: 'John Doe',
-        title: 'Senior Software Engineer',
-        company: 'Tech Corp',
-        linkedinUrl: 'https://linkedin.com/in/johndoe',
-        imageUrl: URL.createObjectURL(imageFile),
-        email: 'john.doe@techcorp.com',
-        location: 'San Francisco, CA',
-      },
-      {
-        name: 'Jane Smith',
-        title: 'Product Manager',
-        company: 'StartupXYZ',
-        linkedinUrl: 'https://linkedin.com/in/janesmith',
-        imageUrl: URL.createObjectURL(imageFile),
-        location: 'New York, NY',
-      },
-    ]
+    // Mock data - generate enough profiles for max branching factor
+    const mockNames = ['John Doe', 'Jane Smith', 'Bob Johnson', 'Alice Williams', 'Charlie Brown', 'Diana Prince', 'Eve Davis', 'Frank Miller', 'Grace Lee', 'Henry Wilson']
+    const mockTitles = ['Senior Software Engineer', 'Product Manager', 'Data Scientist', 'UX Designer', 'Marketing Director', 'Sales Executive', 'Business Analyst', 'DevOps Engineer', 'Project Manager', 'CEO']
+    const mockCompanies = ['Tech Corp', 'StartupXYZ', 'Innovation Labs', 'Digital Solutions', 'Cloud Systems', 'AI Ventures', 'DataTech Inc', 'Creative Studio', 'Consulting Group', 'Enterprise Co']
+    const mockLocations = ['San Francisco, CA', 'New York, NY', 'Austin, TX', 'Seattle, WA', 'Boston, MA', 'Chicago, IL', 'Los Angeles, CA', 'Denver, CO', 'Miami, FL', 'Portland, OR']
+
+    return mockNames.map((name, index) => ({
+      name,
+      title: mockTitles[index],
+      company: mockCompanies[index],
+      linkedinUrl: `https://linkedin.com/in/${name.toLowerCase().replace(' ', '')}`,
+      imageUrl: URL.createObjectURL(imageFile),
+      email: `${name.toLowerCase().replace(' ', '.')}@${mockCompanies[index].toLowerCase().replace(/\s+/g, '')}.com`,
+      location: mockLocations[index],
+    }))
   }
 
   const handleImageUpload = useCallback(async (file: File | string) => {
@@ -1479,6 +1516,34 @@ export function DetectiveBoard() {
       // Perform reverse image search
       const searchResults = await performReverseImageSearch(draggedPic)
 
+      // Limit results based on branching factor slider
+      const limitedResults = searchResults.slice(0, leadBranchingFactor)
+
+      // Add a note card with search summary - position directly under photo pin
+      // Create this BEFORE profile cards so they avoid it
+      const noteCardWidth = 200
+      const noteCardHeight = 150
+      const noteMargin = 12 // Slim margin between photo pin and note card
+
+      // Calculate position: centered under the photo pin with a few pixels to the left
+      const leftOffset = 10 // Slight offset to the left
+      const noteX = photoPinX + (photoPinSize - noteCardWidth) / 2 - leftOffset
+      const noteY = photoPinY + photoPinSize + noteMargin
+      const noteId = createShapeId()
+      
+      editor.createShape({
+        id: noteId,
+        type: 'note-card',
+        x: noteX,
+        y: noteY,
+        props: {
+          w: noteCardWidth,
+          h: noteCardHeight,
+          text: `Created ${limitedResults.length} lead${limitedResults.length !== 1 ? 's' : ''}\n\nSearch completed: ${new Date().toLocaleTimeString()}`,
+          color: '#ffeb3b',
+        },
+      })
+
       // Store profile shapes for creating connections
       const profileShapes: Array<{ id: string; x: number; y: number; profile: any }> = []
 
@@ -1496,14 +1561,25 @@ export function DetectiveBoard() {
       // Arrange in a grid with max 2 columns to spread them out more
       const cols = Math.min(2, searchResults.length)
 
-      searchResults.forEach((profile, index) => {
-        const profileId = createShapeId()
-        const col = index % cols
-        const row = Math.floor(index / cols)
+      // Radial layout: randomize starting angle and direction for each photo upload
+      const startAngle = Math.random() * 2 * Math.PI // Random starting angle (0 to 2π)
+      const direction = Math.random() < 0.5 ? 1 : -1 // Random direction: 1 for counterclockwise, -1 for clockwise
+      const radius = 450 // Distance from photo pin center
+      const angleSpacing = limitedResults.length > 1 ? (Math.PI / 3) / (limitedResults.length - 1) : 0 // Fan out over 60 degrees
 
-        // Calculate ideal position
-        const idealX = baseStartX + col * horizontalSpacing
-        const idealY = baseStartY + row * verticalSpacing
+      // Photo pin center for positioning
+      const photoPinCenterX = photoPinX + photoPinSize / 2
+      const photoPinCenterY = photoPinY + photoPinSize / 2
+
+      limitedResults.forEach((profile, index) => {
+        const profileId = createShapeId()
+
+        // Calculate angle for this profile card
+        const angle = startAngle + (direction * angleSpacing * index)
+
+        // Calculate ideal position using polar coordinates
+        const idealX = photoPinCenterX + radius * Math.cos(angle) - profileCardWidth / 2
+        const idealY = photoPinCenterY + radius * Math.sin(angle) - profileCardHeight / 2
 
         // Find non-colliding position with padding
         const position = findNonCollidingPosition(
@@ -1536,31 +1612,31 @@ export function DetectiveBoard() {
         profileShapes.push({ id: profileId, x: position.x, y: position.y, profile })
 
         // Create red rope connection from photo pin to profile pin
-        // Calculate pin positions (pins are centered at top of each card)
-        // Photo pin: center at top + 12px (4px offset + 16px height / 2)
-        // Profile card pin: center at top + 18px (8px offset + 20px height / 2)
-        const photoPinCenterX = photoPinX + photoPinSize / 2
-        const photoPinCenterY = photoPinY + 12
+        // Calculate pin positions (at bottom of pin balls)
+        // Photo pin: bottom of ball at top + 20px (4px offset + 16px height)
+        // Profile card pin: bottom of ball at top + 28px (8px offset + 20px height)
+        const photoPinAnchorX = photoPinX + photoPinSize / 2
+        const photoPinAnchorY = photoPinY + 20
         const profilePinCenterX = position.x + profileCardWidth / 2
-        const profilePinCenterY = position.y + 18
+        const profilePinCenterY = position.y + 28
 
         // Calculate angle and distance between pins
-        const dx = profilePinCenterX - photoPinCenterX
-        const dy = profilePinCenterY - photoPinCenterY
-        const angle = Math.atan2(dy, dx)
+        const dx = profilePinCenterX - photoPinAnchorX
+        const dy = profilePinCenterY - photoPinAnchorY
+        const ropeAngle = Math.atan2(dy, dx)
         const ropeLength = Math.sqrt(dx * dx + dy * dy)
 
         // Position rope starting at the photo pin
-        const ropeX = photoPinCenterX
-        const ropeY = photoPinCenterY
+        const ropeX = photoPinAnchorX
+        const ropeY = photoPinAnchorY
 
         const ropeId = createShapeId()
         editor.createShape({
           id: ropeId,
-          type: 'rope',
+          type: 'temporal_rope',
           x: ropeX,
           y: ropeY,
-          rotation: angle,
+          rotation: ropeAngle,
           props: {
             w: ropeLength,
             h: 3,
@@ -1586,17 +1662,17 @@ export function DetectiveBoard() {
           if (hasCommonCompany || hasCommonLocation || hasCommonDomain) {
             const ropeId = createShapeId()
 
-            // Calculate pin positions (pins are centered at top of cards)
-            // Profile card pin: center at top + 18px (8px offset + 20px height / 2)
+            // Calculate pin positions (at bottom of pin balls)
+            // Profile card pin: bottom of ball at top + 28px (8px offset + 20px height)
             const profile1PinCenterX = profile1.x + profileCardWidth / 2
-            const profile1PinCenterY = profile1.y + 18
+            const profile1PinCenterY = profile1.y + 28
             const profile2PinCenterX = profile2.x + profileCardWidth / 2
-            const profile2PinCenterY = profile2.y + 18
+            const profile2PinCenterY = profile2.y + 28
 
             // Calculate angle and distance between pins
             const dx = profile2PinCenterX - profile1PinCenterX
             const dy = profile2PinCenterY - profile1PinCenterY
-            const angle = Math.atan2(dy, dx)
+            const ropeAngle = Math.atan2(dy, dx)
             const ropeLength = Math.sqrt(dx * dx + dy * dy)
 
             // Position rope starting at profile1 pin
@@ -1605,10 +1681,10 @@ export function DetectiveBoard() {
 
             editor.createShape({
               id: ropeId,
-              type: 'rope',
+              type: 'temporal_rope',
               x: ropeX,
               y: ropeY,
-              rotation: angle,
+              rotation: ropeAngle,
               props: {
                 w: ropeLength,
                 h: 3,
@@ -1621,21 +1697,6 @@ export function DetectiveBoard() {
           }
         }
       }
-
-      // Add a note card with search summary - position close to photo pin
-      const noteId = createShapeId()
-      editor.createShape({
-        id: noteId,
-        type: 'note-card',
-        x: photoPinX - 120,
-        y: photoPinY + 250,
-        props: {
-          w: 200,
-          h: 150,
-          text: `Found ${searchResults.length} potential matches\n\nSearch completed: ${new Date().toLocaleTimeString()}`,
-          color: '#ffeb3b',
-        },
-      })
 
       // Auto-zoom to fit all elements on screen
       setTimeout(() => {
@@ -1674,13 +1735,16 @@ export function DetectiveBoard() {
     } catch (error) {
       console.error('Error processing image:', error)
 
-      // Add error note - position close to photo pin
+      // Add error note - position centered under photo pin with slim margin
       const errorNoteId = createShapeId()
+      const errorNoteWidth = 200
+      const errorLeftOffset = 10 // Slight offset to the left
+      const errorMargin = 12 // Slim margin between photo pin and note card
       editor.createShape({
         id: errorNoteId,
         type: 'note-card',
-        x: photoPinX - 120,
-        y: photoPinY + 250,
+        x: photoPinX + (photoPinSize - errorNoteWidth) / 2 - errorLeftOffset,
+        y: photoPinY + photoPinSize + errorMargin,
         props: {
           w: 200,
           h: 120,
@@ -1691,7 +1755,7 @@ export function DetectiveBoard() {
     } finally {
       setIsSearching(false)
     }
-  }, [editor, findNonCollidingPosition])
+  }, [editor, findNonCollidingPosition, leadBranchingFactor])
 
   return (
     <div
@@ -1716,10 +1780,57 @@ export function DetectiveBoard() {
       >
         <AssetTracker />
       </Tldraw>
-      <SearchPanel 
+      <SearchPanel
         onImageUpload={handleImageUpload}
         isSearching={isSearching}
       />
+      {/* Lead Branching Factor Slider */}
+      <div
+        style={{
+          position: 'fixed',
+          bottom: '20px',
+          right: '240px',
+          background: 'rgba(255, 255, 255, 0.95)',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(139, 69, 19, 0.3)',
+          zIndex: 999,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          minWidth: '200px',
+        }}
+      >
+        <label
+          htmlFor="branching-slider"
+          style={{
+            fontSize: '13px',
+            fontWeight: '600',
+            color: '#8b4513',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Leads: {leadBranchingFactor}
+        </label>
+        <input
+          id="branching-slider"
+          type="range"
+          min="1"
+          max="10"
+          value={leadBranchingFactor}
+          onChange={(e) => setLeadBranchingFactor(parseInt(e.target.value))}
+          style={{
+            flex: 1,
+            height: '4px',
+            borderRadius: '2px',
+            outline: 'none',
+            background: `linear-gradient(to right, #8b4513 0%, #8b4513 ${(leadBranchingFactor - 1) * 11.11}%, #ddd ${(leadBranchingFactor - 1) * 11.11}%, #ddd 100%)`,
+            cursor: 'pointer',
+          }}
+        />
+      </div>
     </div>
   )
 }

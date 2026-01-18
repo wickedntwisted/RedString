@@ -28,13 +28,6 @@ export function SearchPanel({ onImageUpload, isSearching }: SearchPanelProps) {
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       onImageUpload(e.dataTransfer.files[0])
       setIsExpanded(false)
-      return
-    }
-
-    const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain')
-    if (url) {
-      onImageUpload(url)
-      setIsExpanded(false)
     }
   }
 

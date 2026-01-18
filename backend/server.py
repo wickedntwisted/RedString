@@ -1,4 +1,5 @@
 import boto3
+import asyncio
 import os
 import json
 from dotenv import load_dotenv
@@ -6,6 +7,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from serpapi import GoogleSearch
+from linkedin_service import scrape_user, scrape_company
+import time
 
 load_dotenv()
 
@@ -34,6 +37,10 @@ CORS(app)
 def build_image_url(filename: str) -> str:
     return f"https://{hostname}/{bucket_name}/{filename}"
 
+@app.route("/", methods=['GET'])
+def root():
+    return "HELLO I LOVE U"
+
 @app.route('/api/upload-image', methods=['POST'])
 def upload_image():
     try:
@@ -55,7 +62,7 @@ def upload_image():
             Key=filename,
             Body=file_data,
             ContentType=file.content_type,
-            ACL='public-read'  # ensure public access for SerpApi
+            ACL='public-read'
         )
         
         file_url = build_image_url(filename)
@@ -64,22 +71,32 @@ def upload_image():
             return jsonify({'url': file_url, 'error': 'Missing SERP_API_KEY'}), 500
 
         params = {
-            "engine": "google_reverse_image",
+            "engine": "google",
+            "q": f"site:linkedin.com",
+            "tbm": "isch",  # image search
             "image_url": file_url,
             "api_key": serp_api_key,
         }
         search = GoogleSearch(params)
         results = search.get_dict()
 
+        # Check if results contain any matches
+        has_results = bool(results.get('results') or results.get('inline_images') or results.get('reverse_image_results'))
+        
+        response_data = {
+            "url": file_url,
+            "serpapi": results
+        }
+        
+        if not has_results:
+            response_data["message"] = "No results found"
+
         # Write result to JSON file under backend/serp_results/<filename>.json
         results_path = os.path.join(RESULTS_DIR, f"{filename}.json")
         with open(results_path, "w", encoding="utf-8") as f:
-            json.dump({"url": file_url, "serpapi": results}, f, ensure_ascii=False, indent=2)
+            json.dump(response_data, f, ensure_ascii=False, indent=2)
 
-        return jsonify({
-            "url": file_url,
-            "serpapi": results
-        }), 201
+        return jsonify(response_data), 201
     
     except Exception as e:
         print(f"ERROR: {str(e)}")
@@ -94,6 +111,30 @@ def get_image(filename):
         return jsonify({'success': True, 'url': file_url}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/linkedin_scrape_user/<user>', methods=['GET'])
+def linkedin_scrape_user(user : str):
+    try:
+        data = asyncio.run(scrape_user(user))
+        return jsonify(json.loads(data)), 200
+    except Exception as e:
+        print(f"ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/linkedin_scrape_company/<company>', methods=['GET'])
+def linkedin_scrape_company(company : str):
+    try:
+        data = asyncio.run(scrape_company(company))
+        return jsonify(json.loads(data)), 200
+    except Exception as e:
+        print(f"ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+    
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

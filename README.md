@@ -1,50 +1,65 @@
-# React + TypeScript + Vite
+# Detective Board
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+An interactive detective corkboard built with `tldraw`. Drop an image, see mock profile matches, and connect evidence with red-string ropes.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Corkboard-style canvas with custom background tiles
+- Custom shapes: photo pins, profile cards, notes, and rope connections
+- Drag-and-drop image uploads
+- Mock reverse image search results (easy to replace with a real API)
+- Optional image storage backend via Flask + MySQL
 
-## Expanding the ESLint configuration
+## Quick Start
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+1. Install dependencies:
+   ```
+   npm install
+   ```
+2. Start the frontend:
+   ```
+   npm run dev
+   ```
 
-- Configure the top-level `parserOptions` property like this:
+Vite prints the local URL in the terminal (usually `http://localhost:5173`).
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+## Optional Backend (Image Storage)
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+The frontend can post uploaded image URLs to a Flask server at
+`http://localhost:5000/api/upload-image`.
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+### Setup
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+1. Install Python deps:
+   ```
+   pip install flask flask-cors python-dotenv mysql-connector-python
+   ```
+2. Set environment variables in a `.env` file:
+   ```
+   VULTR_HOST=
+   VULTR_PORT=3306
+   VULTR_USER=
+   VULTR_NAME=
+   VULTR_PASSWORD=
+   ```
+3. Run the server:
+   ```
+   python backend/image_storing_server.py
+   ```
+
+If the backend is not running, the frontend will still work, but image-save calls
+will fail and log errors.
+
+## Scripts
+
+- `npm run dev` — start Vite dev server
+- `npm run build` — build for production
+- `npm run lint` — run ESLint
+- `npm run preview` — preview the production build
+
+## Project Structure
+
+- `src/components/DetectiveBoard.tsx` — main board UI and logic
+- `src/components/SearchPanel.tsx` — upload panel UI
+- `src/custom_shapes/` — custom tldraw shapes
+- `backend/image_storing_server.py` — optional Flask API for image storage

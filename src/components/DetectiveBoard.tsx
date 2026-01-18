@@ -1,13 +1,33 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback,useRef, useLayoutEffect, useEffect } from 'react'
 import * as React from 'react'
-import { Tldraw, Editor, createShapeId } from 'tldraw'
+import {approximately } from 'tldraw'
+import { 
+  Tldraw, 
+  Editor, 
+  createShapeId,
+  toRichText, 
+  TLTextShape, 
+  Box,
+  DefaultToolbar,
+  DefaultToolbarContent,
+  TLComponents,
+  TLUiAssetUrlOverrides,
+  TLUiOverrides,
+  TldrawUiMenuItem,
+  useEditor,
+  useIsToolSelected,
+  useTools,
+  useValue } from 'tldraw'
 import 'tldraw/tldraw.css'
 import "../board.css"
 import "../custom_shapes/shapes.css"
 import { SearchPanel } from './SearchPanel'
 import { ProfileCardUtil } from '../custom_shapes/ProfileCard'
+import { ProfileCardTool } from '../custom_tools/ProfileCardTool'
 import { PhotoPinUtil } from '../custom_shapes/PhotoPin'
+import { PhotoPinTool } from '../custom_tools/PhotoPinTool'
 import { NoteCardUtil } from '../custom_shapes/NoteCard'
+import { NoteCardTool } from '../custom_tools/NoteCardTool'
 import { RopeUtil } from '../custom_shapes/rope'
 
 // Custom shapes configuration - must be an array
@@ -17,6 +37,208 @@ const customShapes = [
 	NoteCardUtil,
 	RopeUtil,
 ]
+
+const customTool = [
+  ProfileCardTool,
+  PhotoPinTool,
+  NoteCardTool
+]
+
+const bg_image = new window.Image()
+bg_image.src = '/corkboard.webp'
+
+const customUiOverrides: TLUiOverrides = {
+	tools: (editor: any, tools: any) => {
+		const whitelist = new Set(['select', 'hand', 'laser', 'eraser', 'draw', 'arrow', 'note', 'asset'])
+		return {
+			profile_card: {
+				id: 'profile_card',
+        label: 'Profile Card',
+        icon: 'tool-profile',
+        kbd: 'p',
+        onSelect() {
+          editor.setCurrentTool('profile_card')
+        },
+      },
+			photo_pin: {
+				id: 'photo_pin',
+        label: 'Photo Pin',
+        icon: 'tool-photo',
+        kbd: 'l',
+        onSelect() {
+          editor.setCurrentTool('photo_pin')
+        },
+      },
+			note_card: {
+				id: 'note_card',
+        label: 'Note Tool',
+        icon: 'tool-note',
+        kbd: 'l',
+        onSelect() {
+          editor.setCurrentTool('note_card')
+        },
+      },
+			...Object.fromEntries(
+				Object.entries(tools).filter(([id]) => whitelist.has(id))
+			)
+	  }
+  }
+}
+
+
+function CustomToolbar() {
+	const tools = useTools()
+	return (
+		<DefaultToolbar>
+      <TldrawUiMenuItem {...tools['profile_card']} isSelected={useIsToolSelected(tools['profile_card'])} />
+      <TldrawUiMenuItem {...tools['photo_pin']} isSelected={useIsToolSelected(tools['photo_pin'])} />
+      <TldrawUiMenuItem {...tools['note_card']} isSelected={useIsToolSelected(tools['note_card'])} />
+			<DefaultToolbarContent />
+		</DefaultToolbar>
+	)
+}
+
+const customAssetUrls: TLUiAssetUrlOverrides = {
+	icons: {
+		'tool-profile': '/profile.svg',
+		'tool-photo': '/photo_pin.svg',
+		'tool-note': '/note.svg',
+	},
+}
+
+const customComponents: TLComponents = {
+	Toolbar: CustomToolbar,
+	Grid: ({ size, ...camera }) => {
+		const editor = useEditor()
+
+		// [2]
+		const screenBounds = useValue('screenBounds', () => editor.getViewportScreenBounds(), [])
+		const devicePixelRatio = useValue('dpr', () => editor.getInstanceState().devicePixelRatio, [])
+
+		const canvas = useRef<HTMLCanvasElement>(null)
+
+    useLayoutEffect(() => {
+      if (!canvas.current) return
+      
+      const canvasW = screenBounds.w * devicePixelRatio
+      const canvasH = screenBounds.h * devicePixelRatio
+      canvas.current.width = canvasW
+      canvas.current.height = canvasH
+      const ctx = canvas.current?.getContext('2d')
+      if (!ctx) return
+      ctx.clearRect(0, 0, canvasW, canvasH)
+      
+      // Check if image is loaded
+      if (!bg_image.complete) {
+        bg_image.onload = () => {
+          // Trigger re-render when image loads
+          canvas.current && drawTiledBackground()
+        }
+        return
+      }
+      
+      drawTiledBackground()
+      
+      function drawTiledBackground() {
+        if (!ctx || !bg_image.complete) return
+        
+        const pageViewportBounds = editor.getViewportPageBounds()
+        
+        // Calculate the tile size (use the grid size or image dimensions)
+        const tileWidth = 400
+        const tileHeight = 400
+        
+        // Determine the page-space bounds for tiling
+        const startPageX = Math.floor(pageViewportBounds.minX / tileWidth) * tileWidth
+        const startPageY = Math.floor(pageViewportBounds.minY / tileHeight) * tileHeight
+        const endPageX = Math.ceil(pageViewportBounds.maxX / tileWidth) * tileWidth
+        const endPageY = Math.ceil(pageViewportBounds.maxY / tileHeight) * tileHeight
+        
+        // Calculate number of tiles needed
+        const numCols = Math.ceil((endPageX - startPageX) / tileWidth)
+        const numRows = Math.ceil((endPageY - startPageY) / tileHeight)
+        
+        // Draw tiles
+        for (let row = 0; row < numRows; row++) {
+          for (let col = 0; col < numCols; col++) {
+            const pageX = startPageX + col * tileWidth
+            const pageY = startPageY + row * tileHeight
+            
+            // Convert page-space coordinates to canvas coordinates
+            const canvasX = (pageX + camera.x) * camera.z * devicePixelRatio
+            const canvasY = (pageY + camera.y) * camera.z * devicePixelRatio
+            const canvasTileW = tileWidth * camera.z * devicePixelRatio
+            const canvasTileH = tileHeight * camera.z * devicePixelRatio
+            
+            // Draw the tiled image
+            ctx.drawImage(bg_image, canvasX, canvasY, canvasTileW, canvasTileH)
+          }
+        }
+      }
+    }, [screenBounds, camera, size, devicePixelRatio, editor, bg_image])
+
+		// [7]
+		return <canvas className="tl-grid" ref={canvas} />
+	},
+}
+
+async function uploadImageToFlask(file: File): Promise<string | null> {
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    const response = await fetch('http://localhost:5000/api/upload-image', {
+      method: 'POST',
+      body: formData
+    })
+    
+    const data = await response.json()
+    if (data.success) {
+      console.log('Image uploaded:', data.url)
+      return data.url
+    } else {
+      console.error('Error uploading to Flask server:', data.error)
+      return null
+    }
+  } catch (error) {
+    console.error('Upload to Flask server failed:', error)
+    return null
+  }
+}
+
+function AssetTracker() {
+  const editor = useEditor()
+  const savedAssets = useRef<Set<string>>(new Set())
+  
+  useEffect(() => {
+    if (!editor) return
+
+    const checkAssets = () => {
+      const assets = editor.getAssets()
+      assets.forEach(async (asset) => {
+        if (asset.type === 'image' && asset.props.src && !savedAssets.current.has(asset.id)) {
+          const imageUrl = asset.props.src
+          if (imageUrl.startsWith('data:')) {
+            savedAssets.current.add(asset.id)
+            // Convert data URL to blob and upload
+            const blob = await fetch(imageUrl).then(r => r.blob())
+            const file = new File([blob], 'image.png', { type: blob.type })
+            await uploadImageToFlask(file)
+          }
+        }
+      })
+    }
+
+    checkAssets()
+    const interval = setInterval(checkAssets, 1000)
+
+    return () => {
+      clearInterval(interval)
+    }
+  }, [editor])
+
+  return null
+}
 
 export function DetectiveBoard() {
   const [editor, setEditor] = useState<Editor | null>(null)
@@ -180,16 +402,17 @@ export function DetectiveBoard() {
     e.stopPropagation()
   }
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
     
     const files = e.dataTransfer.files
     if (files.length > 0) {
-      Array.from(files).forEach((file) => {
-        if (file.type.startsWith('image/')) {
-          handleImageUpload(file)
-        }
+      Array.from(files).forEach(async (file) => {
+        if (!file.type.startsWith('image/')) return
+        
+        console.log('File dropped:', file.name)
+        await uploadImageToFlask(file)
       })
     }
   }
@@ -197,7 +420,6 @@ export function DetectiveBoard() {
   // Mock function for reverse image search - replace with actual API call
   const performReverseImageSearch = async (imageFile: File): Promise<any[]> => {
     // TODO: Replace this with actual reverse image search API
-    // Examples: Google Vision API, TinEye API, PimEyes, etc.
     
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 2000))
@@ -433,8 +655,17 @@ export function DetectiveBoard() {
     >
       <Tldraw 
         shapeUtils={customShapes}
-        onMount={(editor) => setEditor(editor)}
-      />
+        tools={customTool}
+        overrides={customUiOverrides}
+        assetUrls={customAssetUrls}
+        components={customComponents}
+        onMount={(editor) => {
+          setEditor(editor)
+          editor.updateInstanceState({ isGridMode: true })
+        }}
+      >
+        <AssetTracker />
+      </Tldraw>
       <SearchPanel 
         onImageUpload={handleImageUpload}
         isSearching={isSearching}

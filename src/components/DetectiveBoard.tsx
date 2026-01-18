@@ -326,11 +326,11 @@ export function DetectiveBoard() {
       if (fromShape.type === 'photo-pin') {
         const photoPinWidth = fromShape.props.w
         fromPinX = fromShape.x + photoPinWidth / 2
-        fromPinY = fromShape.y + 12
+        fromPinY = fromShape.y + 20
       } else if (fromShape.type === 'profile-card') {
         const profileCardWidth = fromShape.props.w
         fromPinX = fromShape.x + profileCardWidth / 2
-        fromPinY = fromShape.y + 18
+        fromPinY = fromShape.y + 28
       } else {
         return // Unknown shape type
       }
@@ -339,11 +339,11 @@ export function DetectiveBoard() {
       if (toShape.type === 'photo-pin') {
         const photoPinWidth = toShape.props.w
         toPinX = toShape.x + photoPinWidth / 2
-        toPinY = toShape.y + 12
+        toPinY = toShape.y + 20
       } else if (toShape.type === 'profile-card') {
         const profileCardWidth = toShape.props.w
         toPinX = toShape.x + profileCardWidth / 2
-        toPinY = toShape.y + 18
+        toPinY = toShape.y + 28
       } else {
         return // Unknown shape type
       }
@@ -576,23 +576,25 @@ export function DetectiveBoard() {
       const profileCardHeight = 200
       const cardPadding = 80 // Healthy padding between cards
 
-      // Calculate base position for profile cards relative to photo pin
-      const horizontalSpacing = 380
-      const verticalSpacing = 320
-      const baseStartX = photoPinX + 550 // Distance from photo pin
-      const baseStartY = photoPinY - 200 // Position relative to photo pin Y
+      // Radial layout: randomize starting angle and direction for each photo upload
+      const startAngle = Math.random() * 2 * Math.PI // Random starting angle (0 to 2π)
+      const direction = Math.random() < 0.5 ? 1 : -1 // Random direction: 1 for counterclockwise, -1 for clockwise
+      const radius = 450 // Distance from photo pin center
+      const angleSpacing = searchResults.length > 1 ? (Math.PI / 3) / (searchResults.length - 1) : 0 // Fan out over 60 degrees
 
-      // Arrange in a grid with max 2 columns to spread them out more
-      const cols = Math.min(2, searchResults.length)
+      // Photo pin center for positioning
+      const photoPinCenterX = photoPinX + photoPinSize / 2
+      const photoPinCenterY = photoPinY + photoPinSize / 2
 
       searchResults.forEach((profile, index) => {
         const profileId = createShapeId()
-        const col = index % cols
-        const row = Math.floor(index / cols)
 
-        // Calculate ideal position
-        const idealX = baseStartX + col * horizontalSpacing
-        const idealY = baseStartY + row * verticalSpacing
+        // Calculate angle for this profile card
+        const angle = startAngle + (direction * angleSpacing * index)
+
+        // Calculate ideal position using polar coordinates
+        const idealX = photoPinCenterX + radius * Math.cos(angle) - profileCardWidth / 2
+        const idealY = photoPinCenterY + radius * Math.sin(angle) - profileCardHeight / 2
 
         // Find non-colliding position with padding
         const position = findNonCollidingPosition(
@@ -625,23 +627,23 @@ export function DetectiveBoard() {
         profileShapes.push({ id: profileId, x: position.x, y: position.y, profile })
 
         // Create red rope connection from photo pin to profile pin
-        // Calculate pin positions (pins are centered at top of each card)
-        // Photo pin: center at top + 12px (4px offset + 16px height / 2)
-        // Profile card pin: center at top + 18px (8px offset + 20px height / 2)
-        const photoPinCenterX = photoPinX + photoPinSize / 2
-        const photoPinCenterY = photoPinY + 12
+        // Calculate pin positions (at bottom of pin balls)
+        // Photo pin: bottom of ball at top + 20px (4px offset + 16px height)
+        // Profile card pin: bottom of ball at top + 28px (8px offset + 20px height)
+        const photoPinAnchorX = photoPinX + photoPinSize / 2
+        const photoPinAnchorY = photoPinY + 20
         const profilePinCenterX = position.x + profileCardWidth / 2
-        const profilePinCenterY = position.y + 18
+        const profilePinCenterY = position.y + 28
 
         // Calculate angle and distance between pins
-        const dx = profilePinCenterX - photoPinCenterX
-        const dy = profilePinCenterY - photoPinCenterY
-        const angle = Math.atan2(dy, dx)
+        const dx = profilePinCenterX - photoPinAnchorX
+        const dy = profilePinCenterY - photoPinAnchorY
+        const ropeAngle = Math.atan2(dy, dx)
         const ropeLength = Math.sqrt(dx * dx + dy * dy)
 
         // Position rope starting at the photo pin
-        const ropeX = photoPinCenterX
-        const ropeY = photoPinCenterY
+        const ropeX = photoPinAnchorX
+        const ropeY = photoPinAnchorY
 
         const ropeId = createShapeId()
         editor.createShape({
@@ -649,7 +651,7 @@ export function DetectiveBoard() {
           type: 'rope',
           x: ropeX,
           y: ropeY,
-          rotation: angle,
+          rotation: ropeAngle,
           props: {
             w: ropeLength,
             h: 3,
@@ -675,17 +677,17 @@ export function DetectiveBoard() {
           if (hasCommonCompany || hasCommonLocation || hasCommonDomain) {
             const ropeId = createShapeId()
 
-            // Calculate pin positions (pins are centered at top of cards)
-            // Profile card pin: center at top + 18px (8px offset + 20px height / 2)
+            // Calculate pin positions (at bottom of pin balls)
+            // Profile card pin: bottom of ball at top + 28px (8px offset + 20px height)
             const profile1PinCenterX = profile1.x + profileCardWidth / 2
-            const profile1PinCenterY = profile1.y + 18
+            const profile1PinCenterY = profile1.y + 28
             const profile2PinCenterX = profile2.x + profileCardWidth / 2
-            const profile2PinCenterY = profile2.y + 18
+            const profile2PinCenterY = profile2.y + 28
 
             // Calculate angle and distance between pins
             const dx = profile2PinCenterX - profile1PinCenterX
             const dy = profile2PinCenterY - profile1PinCenterY
-            const angle = Math.atan2(dy, dx)
+            const ropeAngle = Math.atan2(dy, dx)
             const ropeLength = Math.sqrt(dx * dx + dy * dy)
 
             // Position rope starting at profile1 pin
@@ -697,7 +699,7 @@ export function DetectiveBoard() {
               type: 'rope',
               x: ropeX,
               y: ropeY,
-              rotation: angle,
+              rotation: ropeAngle,
               props: {
                 w: ropeLength,
                 h: 3,

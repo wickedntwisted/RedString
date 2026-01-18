@@ -4,9 +4,11 @@ import './SearchPanel.css'
 interface SearchPanelProps {
   onImageUpload: (file: File | string) => void
   isSearching: boolean
+  onTextSearch: (searchTerm: string) => void
 }
 
-export function SearchPanel({ onImageUpload, isSearching }: SearchPanelProps) {
+
+export function SearchPanel({ onImageUpload, isSearching, onTextSearch }: SearchPanelProps) {
   const [dragActive, setDragActive] = useState(false)
   const [isExpanded, setIsExpanded] = useState(true)
 
@@ -52,6 +54,32 @@ export function SearchPanel({ onImageUpload, isSearching }: SearchPanelProps) {
           <div className="search-panel-header">
             <h2>Detective Board</h2>
             <p>Upload a photo to search for profiles</p>
+          </div>
+          
+          <h3>
+            Search With a Username/Email
+          </h3>
+          <div>
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                const input = e.currentTarget.querySelector('input[type="text"]') as HTMLInputElement;
+                if (input) {
+                  onTextSearch(input.value)
+                }
+              }}
+              className="text-search-form"
+            >
+              <input
+                type="text"
+                placeholder="Enter username or email"
+                className="text-search-input"
+                autoComplete="off"
+              />
+              <button type="submit" className="text-search-button">
+                Search
+              </button>
+            </form>
           </div>
 
           <div

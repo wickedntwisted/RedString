@@ -237,6 +237,7 @@ async function uploadImageToFlask(file: File): Promise<string | null> {
     })
     
     const data = await response.json()
+    console.log("DATA: ", data)
     if (data.success) {
       console.log('Image uploaded:', data.url)
       return data.url
@@ -588,6 +589,32 @@ export function DetectiveBoard() {
     }))
   }
 
+  function handleTextUpload(inputstr : string) {
+    const original_id = createShapeId()
+		editor.createShape<NoteCardUtil>({
+      id : original_id,
+		  type: 'note-card',
+		  x: 0,
+		  y: 0,
+      text : inputstr
+		})
+    const eventSource = new EventSource('http://127.0.0.1:5000/api/search/'+inputstr);
+    eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        console.log(`Found: ${data.name} at ${data.url}`);
+		    editor.createShape<NoteCardUtil>({
+          id : createShapeId(),
+		      type: 'note-card',
+		      x: 0,
+		      y: 0,
+          text : `${data.name} : ${data.url}`
+		    })
+    };
+    eventSource.onerror = () => {
+        eventSource.close();
+    };
+
+  }
   const handleImageUpload = useCallback(async (file: File | string) => {
     if (!editor) return
 
@@ -914,6 +941,7 @@ export function DetectiveBoard() {
       </Tldraw>
       <SearchPanel
         onImageUpload={handleImageUpload}
+        onTextSearch={handleTextUpload}
         isSearching={isSearching}
       />
       {/* Lead Branching Factor Slider */}

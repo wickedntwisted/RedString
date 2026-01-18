@@ -3,11 +3,12 @@ import asyncio
 import os
 import json
 from dotenv import load_dotenv
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response, stream_with_context
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from serpapi import GoogleSearch
 from linkedin_service import scrape_user, scrape_company
+from sherlock_generator import stream_sherlock
 import time
 
 load_dotenv()
@@ -71,7 +72,7 @@ def upload_image():
             return jsonify({'url': file_url, 'error': 'Missing SERP_API_KEY'}), 500
 
         params = {
-            "engine": "google",
+            "engine": "google_reverse_image",
             "q": f"site:linkedin.com",
             "tbm": "isch",  # image search
             "image_url": file_url,
@@ -134,7 +135,45 @@ def linkedin_scrape_company(company : str):
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
     
+@app.route('/api/text-search', methods=['POST'])
+def get_text():
+    try:
+        if request.method == 'POST':
+            print(request.json)
+            # call ghunt with the request json text
+            username = request.json['text']
+            return "HELLO WORLD"
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
+@app.route('/api/search/<username>')
+def search_username(username):
+    async def generate():
+        async for result in stream_sherlock(username):
+            yield f"data: {result}\n\n"  # SSE format
+    
+    # Run async generator in sync context
+    def sync_generate():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            async_gen = generate()
+            while True:
+                try:
+                    yield loop.run_until_complete(async_gen.__anext__())
+                except StopAsyncIteration:
+                    break
+        finally:
+            loop.close()
+    
+    return Response(
+        stream_with_context(sync_generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no'  # Disable nginx buffering
+        }
+    )
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

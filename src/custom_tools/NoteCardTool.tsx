@@ -1,8 +1,6 @@
 import { 
     StateNode,
-    TLTextShape,
     Tldraw,
-    toRichText
 } from 'tldraw'
 import 'tldraw/tldraw.css'
 import { NoteCardUtil } from '../custom_shapes/NoteCard'
@@ -19,7 +17,7 @@ export class NoteCardTool extends StateNode {
 
 	override onPointerDown() {
 		const { currentPagePoint } = this.editor.inputs
-		this.editor.createShape<ProfileCardUtil>({
+		this.editor.createShape<NoteCardUtil>({
 			type: 'note-card',
 			x: currentPagePoint.x - OFFSET,
 			y: currentPagePoint.y - OFFSET,

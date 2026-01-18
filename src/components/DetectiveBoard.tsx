@@ -243,6 +243,7 @@ function AssetTracker() {
 export function DetectiveBoard() {
   const [editor, setEditor] = useState<Editor | null>(null)
   const [isSearching, setIsSearching] = useState(false)
+  const [leadBranchingFactor, setLeadBranchingFactor] = useState(2)
 
   // Handle rope confirmation
   const handleRopeConfirm = useCallback((shapeId: string) => {
@@ -487,26 +488,21 @@ export function DetectiveBoard() {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 2000))
 
-    // Mock data - replace with actual API response
-    return [
-      {
-        name: 'John Doe',
-        title: 'Senior Software Engineer',
-        company: 'Tech Corp',
-        linkedinUrl: 'https://linkedin.com/in/johndoe',
-        imageUrl: URL.createObjectURL(imageFile),
-        email: 'john.doe@techcorp.com',
-        location: 'San Francisco, CA',
-      },
-      {
-        name: 'Jane Smith',
-        title: 'Product Manager',
-        company: 'StartupXYZ',
-        linkedinUrl: 'https://linkedin.com/in/janesmith',
-        imageUrl: URL.createObjectURL(imageFile),
-        location: 'New York, NY',
-      },
-    ]
+    // Mock data - generate enough profiles for max branching factor
+    const mockNames = ['John Doe', 'Jane Smith', 'Bob Johnson', 'Alice Williams', 'Charlie Brown', 'Diana Prince', 'Eve Davis', 'Frank Miller', 'Grace Lee', 'Henry Wilson']
+    const mockTitles = ['Senior Software Engineer', 'Product Manager', 'Data Scientist', 'UX Designer', 'Marketing Director', 'Sales Executive', 'Business Analyst', 'DevOps Engineer', 'Project Manager', 'CEO']
+    const mockCompanies = ['Tech Corp', 'StartupXYZ', 'Innovation Labs', 'Digital Solutions', 'Cloud Systems', 'AI Ventures', 'DataTech Inc', 'Creative Studio', 'Consulting Group', 'Enterprise Co']
+    const mockLocations = ['San Francisco, CA', 'New York, NY', 'Austin, TX', 'Seattle, WA', 'Boston, MA', 'Chicago, IL', 'Los Angeles, CA', 'Denver, CO', 'Miami, FL', 'Portland, OR']
+
+    return mockNames.map((name, index) => ({
+      name,
+      title: mockTitles[index],
+      company: mockCompanies[index],
+      linkedinUrl: `https://linkedin.com/in/${name.toLowerCase().replace(' ', '')}`,
+      imageUrl: URL.createObjectURL(imageFile),
+      email: `${name.toLowerCase().replace(' ', '.')}@${mockCompanies[index].toLowerCase().replace(/\s+/g, '')}.com`,
+      location: mockLocations[index],
+    }))
   }
 
   const handleImageUpload = useCallback(async (file: File) => {
@@ -568,6 +564,33 @@ export function DetectiveBoard() {
       // Perform reverse image search
       const searchResults = await performReverseImageSearch(file)
 
+      // Limit results based on branching factor slider
+      const limitedResults = searchResults.slice(0, leadBranchingFactor)
+
+      // Add a note card with search summary - position directly under photo pin
+      // Create this BEFORE profile cards so they avoid it
+      const noteCardWidth = 200
+      const noteCardHeight = 150
+      const noteMargin = 20 // Margin between photo pin and note card
+
+      // Calculate position: centered under the photo pin
+      const noteX = photoPinX
+      const noteY = photoPinY + photoPinSize + noteMargin
+
+      const noteId = createShapeId()
+      editor.createShape({
+        id: noteId,
+        type: 'note-card',
+        x: noteX,
+        y: noteY,
+        props: {
+          w: noteCardWidth,
+          h: noteCardHeight,
+          text: `Created ${limitedResults.length} lead${limitedResults.length !== 1 ? 's' : ''}\n\nSearch completed: ${new Date().toLocaleTimeString()}`,
+          color: '#ffeb3b',
+        },
+      })
+
       // Store profile shapes for creating connections
       const profileShapes: Array<{ id: string; x: number; y: number; profile: any }> = []
 
@@ -580,13 +603,13 @@ export function DetectiveBoard() {
       const startAngle = Math.random() * 2 * Math.PI // Random starting angle (0 to 2π)
       const direction = Math.random() < 0.5 ? 1 : -1 // Random direction: 1 for counterclockwise, -1 for clockwise
       const radius = 450 // Distance from photo pin center
-      const angleSpacing = searchResults.length > 1 ? (Math.PI / 3) / (searchResults.length - 1) : 0 // Fan out over 60 degrees
+      const angleSpacing = limitedResults.length > 1 ? (Math.PI / 3) / (limitedResults.length - 1) : 0 // Fan out over 60 degrees
 
       // Photo pin center for positioning
       const photoPinCenterX = photoPinX + photoPinSize / 2
       const photoPinCenterY = photoPinY + photoPinSize / 2
 
-      searchResults.forEach((profile, index) => {
+      limitedResults.forEach((profile, index) => {
         const profileId = createShapeId()
 
         // Calculate angle for this profile card
@@ -713,21 +736,6 @@ export function DetectiveBoard() {
         }
       }
 
-      // Add a note card with search summary - position close to photo pin
-      const noteId = createShapeId()
-      editor.createShape({
-        id: noteId,
-        type: 'note-card',
-        x: photoPinX - 120,
-        y: photoPinY + 250,
-        props: {
-          w: 200,
-          h: 150,
-          text: `Found ${searchResults.length} potential matches\n\nSearch completed: ${new Date().toLocaleTimeString()}`,
-          color: '#ffeb3b',
-        },
-      })
-
       // Auto-zoom to fit all elements on screen
       setTimeout(() => {
         const allShapes = editor.getCurrentPageShapes()
@@ -782,7 +790,7 @@ export function DetectiveBoard() {
     } finally {
       setIsSearching(false)
     }
-  }, [editor, findNonCollidingPosition])
+  }, [editor, findNonCollidingPosition, leadBranchingFactor])
 
   return (
     <div
@@ -803,10 +811,57 @@ export function DetectiveBoard() {
       >
         <AssetTracker />
       </Tldraw>
-      <SearchPanel 
+      <SearchPanel
         onImageUpload={handleImageUpload}
         isSearching={isSearching}
       />
+      {/* Lead Branching Factor Slider */}
+      <div
+        style={{
+          position: 'fixed',
+          bottom: '20px',
+          right: '240px',
+          background: 'rgba(255, 255, 255, 0.95)',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(139, 69, 19, 0.3)',
+          zIndex: 999,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          minWidth: '200px',
+        }}
+      >
+        <label
+          htmlFor="branching-slider"
+          style={{
+            fontSize: '13px',
+            fontWeight: '600',
+            color: '#8b4513',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Leads: {leadBranchingFactor}
+        </label>
+        <input
+          id="branching-slider"
+          type="range"
+          min="1"
+          max="10"
+          value={leadBranchingFactor}
+          onChange={(e) => setLeadBranchingFactor(parseInt(e.target.value))}
+          style={{
+            flex: 1,
+            height: '4px',
+            borderRadius: '2px',
+            outline: 'none',
+            background: `linear-gradient(to right, #8b4513 0%, #8b4513 ${(leadBranchingFactor - 1) * 11.11}%, #ddd ${(leadBranchingFactor - 1) * 11.11}%, #ddd 100%)`,
+            cursor: 'pointer',
+          }}
+        />
+      </div>
     </div>
   )
 }

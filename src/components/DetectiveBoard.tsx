@@ -25,6 +25,7 @@ import { SearchPanel } from './SearchPanel'
 import { ProfileCardUtil } from '../custom_shapes/ProfileCard'
 import { ProfileCardTool } from '../custom_tools/ProfileCardTool'
 import { PhotoPinUtil } from '../custom_shapes/PhotoPin'
+import { PhotoPinTool } from '../custom_tools/PhotoPinTool'
 import { NoteCardUtil } from '../custom_shapes/NoteCard'
 import { RopeUtil } from '../custom_shapes/rope'
 
@@ -37,7 +38,8 @@ const customShapes = [
 ]
 
 const customTool = [
-  ProfileCardTool
+  ProfileCardTool,
+  PhotoPinTool
 ]
 
 const bg_image = new window.Image()
@@ -56,6 +58,15 @@ const customUiOverrides: TLUiOverrides = {
           editor.setCurrentTool('profile_card')
         },
       },
+			photo_pin: {
+				id: 'photo_pin',
+        label: 'Photo Pin',
+        icon: 'tool-photo',
+        kbd: 'l',
+        onSelect() {
+          editor.setCurrentTool('photo_pin')
+        },
+      },
 			...Object.fromEntries(
 				Object.entries(tools).filter(([id]) => whitelist.has(id))
 			)
@@ -66,10 +77,10 @@ const customUiOverrides: TLUiOverrides = {
 
 function CustomToolbar() {
 	const tools = useTools()
-  const isProfileSelected = useIsToolSelected(tools['profile_card'])
 	return (
 		<DefaultToolbar>
-      <TldrawUiMenuItem {...tools['profile_card']} isSelected={isProfileSelected} />
+      <TldrawUiMenuItem {...tools['profile_card']} isSelected={useIsToolSelected(tools['profile_card'])} />
+      <TldrawUiMenuItem {...tools['photo_pin']} isSelected={useIsToolSelected(tools['photo_pin'])} />
 			<DefaultToolbarContent />
 		</DefaultToolbar>
 	)
@@ -78,6 +89,7 @@ function CustomToolbar() {
 const customAssetUrls: TLUiAssetUrlOverrides = {
 	icons: {
 		'tool-profile': '/profile.svg',
+		'tool-photo': '/photo_pin.svg',
 	},
 }
 

@@ -16,3 +16,9 @@ async def stream_sherlock(username: str):
             name = split_line[1][:-1]
             url = split_line[2]
             yield json.dumps({"source": "sherlock", "name": name, "url": url}) + "\n"
+
+    # Wait for the process to complete
+    await proc.wait()
+
+    # Send completion message
+    yield json.dumps({"done": True}) + "\n"

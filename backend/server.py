@@ -143,7 +143,7 @@ def search_username(username):
     async def generate():
         async for result in stream_sherlock(username):
             yield f"data: {result}\n\n"  # SSE format
-    
+
     # Run async generator in sync context
     def sync_generate():
         loop = asyncio.new_event_loop()
@@ -152,12 +152,14 @@ def search_username(username):
             async_gen = generate()
             while True:
                 try:
-                    yield loop.run_until_complete(async_gen.__anext__())
+                    result = loop.run_until_complete(async_gen.__anext__())
+                    yield result
                 except StopAsyncIteration:
+                    print(f"[DEBUG] Stream complete for username: {username}")
                     break
         finally:
             loop.close()
-    
+
     return Response(
         stream_with_context(sync_generate()),
         mimetype='text/event-stream',

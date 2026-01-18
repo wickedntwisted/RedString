@@ -1150,7 +1150,9 @@ function AssetTracker() {
 export function DetectiveBoard() {
   const [editor, setEditor] = useState<Editor | null>(null)
   const [isSearching, setIsSearching] = useState(false)
+  const [isSherlockSearching, setIsSherlockSearching] = useState(false)
   const [leadBranchingFactor, setLeadBranchingFactor] = useState(2)
+  const [isPanelExpanded, setIsPanelExpanded] = useState(true)
 
   // Handle rope confirmation
   const handleRopeConfirm = useCallback((shapeId: string) => {
@@ -1464,6 +1466,9 @@ export function DetectiveBoard() {
   }
 
   function handleTextUpload(inputstr : string) {
+    // Start sherlock search
+    setIsSherlockSearching(true)
+
     // Calculate position for the initial note card
     const noteCardWidth = 180
     const noteCardHeight = 180
@@ -1507,10 +1512,91 @@ export function DetectiveBoard() {
     const mainNoteCenterX = mainNotePosition.x + noteCardWidth / 2
     const mainNoteCenterY = mainNotePosition.y + noteCardHeight / 2
 
+    // Timeout fallback in case completion message doesn't arrive
+    let messageCount = 0
+    let timeoutId: NodeJS.Timeout | null = null
+    let zoomDebounceId: NodeJS.Timeout | null = null
+
+    const zoomToFitAll = () => {
+      // Auto-zoom to fit all elements on screen
+      setTimeout(() => {
+        const allShapes = editor.getCurrentPageShapes()
+        if (allShapes.length > 0) {
+          // Calculate bounding box of all shapes
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+
+          allShapes.forEach((shape: any) => {
+            const bounds = editor.getShapePageBounds(shape.id)
+            if (bounds) {
+              minX = Math.min(minX, bounds.minX)
+              minY = Math.min(minY, bounds.minY)
+              maxX = Math.max(maxX, bounds.maxX)
+              maxY = Math.max(maxY, bounds.maxY)
+            }
+          })
+
+          // Add padding
+          const padding = 150
+          const contentBox = new Box(
+            minX - padding,
+            minY - padding,
+            maxX - minX + padding * 2,
+            maxY - minY + padding * 2
+          )
+
+          // Zoom to fit with animation
+          editor.zoomToBounds(contentBox, {
+            animation: { duration: 500 },
+            targetZoom: Math.min(editor.getZoomLevel(), 1) // Don't zoom in more than 100%
+          })
+        }
+      }, 100) // Small delay to ensure all shapes are rendered
+    }
+
+    // Debounced zoom - only fires once every 800ms
+    const debouncedZoom = () => {
+      if (zoomDebounceId) clearTimeout(zoomDebounceId)
+      zoomDebounceId = setTimeout(() => {
+        zoomToFitAll()
+      }, 300)
+    }
+
+    // Initial zoom to show the main note
+    debouncedZoom()
+
     const eventSource = new EventSource('http://127.0.0.1:5000/api/search/'+inputstr);
+
+    const resetTimeout = () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      timeoutId = setTimeout(() => {
+        console.log('[Sherlock] Search timed out, stopping spinner')
+        if (zoomDebounceId) clearTimeout(zoomDebounceId)
+        eventSource.close()
+        setIsSherlockSearching(false)
+        // Final zoom to fit everything
+        zoomToFitAll()
+      }, 5000) // 5 seconds without messages = done
+    }
+
     eventSource.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        console.log(`Found: ${data.name} at ${data.url}`);
+        console.log('[Sherlock] Received message:', data);
+
+        // Check if this is a completion message
+        if (data.done) {
+          console.log('[Sherlock] Received completion signal');
+          if (timeoutId) clearTimeout(timeoutId)
+          if (zoomDebounceId) clearTimeout(zoomDebounceId)
+          eventSource.close();
+          setIsSherlockSearching(false);
+          // Final zoom to fit everything
+          zoomToFitAll();
+          return;
+        }
+
+        console.log(`[Sherlock] Found: ${data.name} at ${data.url}`);
+        messageCount++
+        resetTimeout()
 
         // Calculate angle for this result
         const angle = startAngle + (direction * angleSpacing * resultIndex)
@@ -1578,10 +1664,25 @@ export function DetectiveBoard() {
         })
 
         resultIndex++
+
+        // Zoom out to fit all content after each new result (debounced)
+        debouncedZoom()
     };
-    eventSource.onerror = () => {
+
+    eventSource.onerror = (error) => {
+        console.log('[Sherlock] EventSource error:', error);
+        if (timeoutId) clearTimeout(timeoutId)
+        if (zoomDebounceId) clearTimeout(zoomDebounceId)
         eventSource.close();
+        setIsSherlockSearching(false)
+        // Only zoom if we got some results
+        if (messageCount > 0) {
+          zoomToFitAll()
+        }
     };
+
+    // Start initial timeout
+    resetTimeout()
 
   }
   const handleImageUpload = useCallback(async (file: File | string) => {
@@ -1917,6 +2018,7 @@ export function DetectiveBoard() {
         onImageUpload={handleImageUpload}
         onTextSearch={handleTextUpload}
         isSearching={isSearching}
+        onExpandChange={setIsPanelExpanded}
       />
       {/* Lead Branching Factor Slider */}
       <div
@@ -1965,6 +2067,62 @@ export function DetectiveBoard() {
           }}
         />
       </div>
+
+      {/* Sherlock Searching Indicator */}
+      {isSherlockSearching && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(139, 69, 19, 0.95)',
+            borderRadius: '12px',
+            padding: '16px 24px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+            backdropFilter: 'blur(10px)',
+            border: '2px solid rgba(220, 38, 38, 0.5)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            animation: 'sherlockFadeIn 0.3s ease-in',
+          }}
+        >
+          <div
+            style={{
+              width: '24px',
+              height: '24px',
+              border: '3px solid rgba(255, 255, 255, 0.3)',
+              borderTop: '3px solid #fff',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+            }}
+          />
+          <span
+            style={{
+              color: '#fff',
+              fontSize: '14px',
+              fontWeight: '600',
+              letterSpacing: '0.5px',
+            }}
+          >
+            Sherlock is investigating...
+          </span>
+          <style>
+            {`
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+              @keyframes sherlockFadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+              }
+            `}
+          </style>
+        </div>
+      )}
     </div>
   )
 }

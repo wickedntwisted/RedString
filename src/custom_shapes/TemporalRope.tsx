@@ -78,7 +78,21 @@ export class TemporalRopeUtil extends ShapeUtil<IRopeShape> {
 		const confirmed = shape.props.confirmed ?? false
 		const opacity = confirmed ? 1 : 0.4
 		const redColor = '#dc2626' // Red string color
-		
+
+		// Calculate counter-rotation to keep buttons upright
+		const rotationRad = shape.rotation || 0
+		const rotationDeg = rotationRad * (180 / Math.PI)
+
+		// Normalize angle to -180 to 180 range
+		let normalizedAngle = rotationDeg % 360
+		if (normalizedAngle > 180) normalizedAngle -= 360
+		if (normalizedAngle < -180) normalizedAngle += 360
+
+		// When rope points left, flip the buttons using scaleY
+		const isPointingLeft = normalizedAngle > 90 || normalizedAngle < -90
+		const flipScale = isPointingLeft ? -1 : 1
+		const counterRotationDeg = -rotationDeg
+
 		return (
 			<HTMLContainer>
 				<div
@@ -102,7 +116,7 @@ export class TemporalRopeUtil extends ShapeUtil<IRopeShape> {
 						className="rope-string"
 						style={{
 							position: 'absolute',
-							width: 'calc(100% - 12px)', // Leave space for arrowhead
+							width: '100%',
 							height: '100%',
 							left: 0,
 							top: 0,
@@ -116,33 +130,12 @@ export class TemporalRopeUtil extends ShapeUtil<IRopeShape> {
 							pointerEvents: confirmed ? 'auto' : 'none',
 						}}
 					/>
-					{/* Arrowhead at the end */}
-					<div
-						className="rope-arrowhead"
-						style={{
-							position: 'absolute',
-							right: 0,
-							top: '50%',
-							transform: 'translateY(-50%)',
-							width: 0,
-							height: 0,
-							borderLeft: `8px solid ${redColor}`,
-							borderTop: '6px solid transparent',
-							borderBottom: '6px solid transparent',
-							filter: confirmed
-								? 'drop-shadow(0 0 2px rgba(220, 38, 38, 0.5))'
-								: 'drop-shadow(0 0 1px rgba(220, 38, 38, 0.3))',
-							opacity,
-							transition: 'opacity 0.3s ease',
-							pointerEvents: confirmed ? 'auto' : 'none',
-						}}
-					/>
 					{/* Subtle highlight for depth */}
 					<div
 						className="rope-highlight"
 						style={{
 							position: 'absolute',
-							width: 'calc(100% - 12px)',
+							width: '100%',
 							height: '30%',
 							top: 0,
 							left: 0,
@@ -158,13 +151,13 @@ export class TemporalRopeUtil extends ShapeUtil<IRopeShape> {
 					/>
 					{/* Confirmation buttons - only show when not confirmed */}
 					{!confirmed && (
-						<div 
+						<div
 							className="rope-confirmation-buttons"
 							style={{
 								position: 'absolute',
 								top: '50%',
 								left: '50%',
-								transform: 'translate(-50%, -50%)',
+								transform: `translate(-50%, -50%) rotate(${counterRotationDeg}deg)`,
 								display: 'flex',
 								gap: '8px',
 								zIndex: 1000,
@@ -259,8 +252,25 @@ export class TemporalRopeUtil extends ShapeUtil<IRopeShape> {
 				</div>
 			</HTMLContainer>
 		)
+}
+	override onPointerMove() {
+		if (!this.ropeId) return 
+		const currentpoint = this.editor.inputs.currentPagePoint
+		console.log("current point: ", currentpoint, " - starting point: ", this.startPagePoint)
+		this.editor.updateShape({
+			id: this.ropeId,
+			type: 'rope_shape',
+			props: {
+				end: { 
+					x: Math.abs(currentpoint.x - this.startPagePoint.x) , 
+					y: Math.abs(currentpoint.y - this.startPagePoint.y) 
+				},
+			},
+		})
 	}
-
+	override onPointerUp() {
+		this.ropeId = undefined;
+	}
 	override indicator(shape: IRopeShape) {
 		return null
 	}

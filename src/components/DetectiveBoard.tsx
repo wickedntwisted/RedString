@@ -287,6 +287,7 @@ function AssetTracker() {
 export function DetectiveBoard() {
   const [editor, setEditor] = useState<Editor | null>(null)
   const [isSearching, setIsSearching] = useState(false)
+  const [leadBranchingFactor, setLeadBranchingFactor] = useState(2)
 
   // Handle rope confirmation
   const handleRopeConfirm = useCallback((shapeId: string) => {
@@ -388,11 +389,11 @@ export function DetectiveBoard() {
       if (fromShape.type === 'photo-pin') {
         const photoPinWidth = fromShape.props.w
         fromPinX = fromShape.x + photoPinWidth / 2
-        fromPinY = fromShape.y + 12
+        fromPinY = fromShape.y + 20
       } else if (fromShape.type === 'profile-card') {
         const profileCardWidth = fromShape.props.w
         fromPinX = fromShape.x + profileCardWidth / 2
-        fromPinY = fromShape.y + 18
+        fromPinY = fromShape.y + 28
       } else if (fromShape.type === 'note-card') {
         const noteCardWidth = fromShape.props.w
         fromPinX = fromShape.x + noteCardWidth / 2
@@ -405,11 +406,11 @@ export function DetectiveBoard() {
       if (toShape.type === 'photo-pin') {
         const photoPinWidth = toShape.props.w
         toPinX = toShape.x + photoPinWidth / 2
-        toPinY = toShape.y + 12
+        toPinY = toShape.y + 20
       } else if (toShape.type === 'profile-card') {
         const profileCardWidth = toShape.props.w
         toPinX = toShape.x + profileCardWidth / 2
-        toPinY = toShape.y + 18
+        toPinY = toShape.y + 28
       } else if (toShape.type === 'note-card') {
         const noteCardWidth = toShape.props.w
         toPinX = toShape.x + noteCardWidth / 2
@@ -570,26 +571,21 @@ export function DetectiveBoard() {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 2000))
 
-    // Mock data - replace with actual API response
-    return [
-      {
-        name: 'John Doe',
-        title: 'Senior Software Engineer',
-        company: 'Tech Corp',
-        linkedinUrl: 'https://linkedin.com/in/johndoe',
-        imageUrl: URL.createObjectURL(imageFile),
-        email: 'john.doe@techcorp.com',
-        location: 'San Francisco, CA',
-      },
-      {
-        name: 'Jane Smith',
-        title: 'Product Manager',
-        company: 'StartupXYZ',
-        linkedinUrl: 'https://linkedin.com/in/janesmith',
-        imageUrl: URL.createObjectURL(imageFile),
-        location: 'New York, NY',
-      },
-    ]
+    // Mock data - generate enough profiles for max branching factor
+    const mockNames = ['John Doe', 'Jane Smith', 'Bob Johnson', 'Alice Williams', 'Charlie Brown', 'Diana Prince', 'Eve Davis', 'Frank Miller', 'Grace Lee', 'Henry Wilson']
+    const mockTitles = ['Senior Software Engineer', 'Product Manager', 'Data Scientist', 'UX Designer', 'Marketing Director', 'Sales Executive', 'Business Analyst', 'DevOps Engineer', 'Project Manager', 'CEO']
+    const mockCompanies = ['Tech Corp', 'StartupXYZ', 'Innovation Labs', 'Digital Solutions', 'Cloud Systems', 'AI Ventures', 'DataTech Inc', 'Creative Studio', 'Consulting Group', 'Enterprise Co']
+    const mockLocations = ['San Francisco, CA', 'New York, NY', 'Austin, TX', 'Seattle, WA', 'Boston, MA', 'Chicago, IL', 'Los Angeles, CA', 'Denver, CO', 'Miami, FL', 'Portland, OR']
+
+    return mockNames.map((name, index) => ({
+      name,
+      title: mockTitles[index],
+      company: mockCompanies[index],
+      linkedinUrl: `https://linkedin.com/in/${name.toLowerCase().replace(' ', '')}`,
+      imageUrl: URL.createObjectURL(imageFile),
+      email: `${name.toLowerCase().replace(' ', '.')}@${mockCompanies[index].toLowerCase().replace(/\s+/g, '')}.com`,
+      location: mockLocations[index],
+    }))
   }
 
   const handleImageUpload = useCallback(async (file: File | string) => {
@@ -652,6 +648,33 @@ export function DetectiveBoard() {
       // Perform reverse image search
       const searchResults = await performReverseImageSearch(draggedPic)
 
+      // Limit results based on branching factor slider
+      const limitedResults = searchResults.slice(0, leadBranchingFactor)
+
+      // Add a note card with search summary - position directly under photo pin
+      // Create this BEFORE profile cards so they avoid it
+      const noteCardWidth = 200
+      const noteCardHeight = 150
+      const noteMargin = 20 // Margin between photo pin and note card
+
+      // Calculate position: centered under the photo pin
+      const noteX = photoPinX
+      const noteY = photoPinY + photoPinSize + noteMargin
+      const noteId = createShapeId()
+      
+      editor.createShape({
+        id: noteId,
+        type: 'note-card',
+        x: noteX,
+        y: noteY,
+        props: {
+          w: noteCardWidth,
+          h: noteCardHeight,
+          text: `Created ${limitedResults.length} lead${limitedResults.length !== 1 ? 's' : ''}\n\nSearch completed: ${new Date().toLocaleTimeString()}`,
+          color: '#ffeb3b',
+        },
+      })
+
       // Store profile shapes for creating connections
       const profileShapes: Array<{ id: string; x: number; y: number; profile: any }> = []
 
@@ -669,14 +692,25 @@ export function DetectiveBoard() {
       // Arrange in a grid with max 2 columns to spread them out more
       const cols = Math.min(2, searchResults.length)
 
-      searchResults.forEach((profile, index) => {
-        const profileId = createShapeId()
-        const col = index % cols
-        const row = Math.floor(index / cols)
+      // Radial layout: randomize starting angle and direction for each photo upload
+      const startAngle = Math.random() * 2 * Math.PI // Random starting angle (0 to 2π)
+      const direction = Math.random() < 0.5 ? 1 : -1 // Random direction: 1 for counterclockwise, -1 for clockwise
+      const radius = 450 // Distance from photo pin center
+      const angleSpacing = limitedResults.length > 1 ? (Math.PI / 3) / (limitedResults.length - 1) : 0 // Fan out over 60 degrees
 
-        // Calculate ideal position
-        const idealX = baseStartX + col * horizontalSpacing
-        const idealY = baseStartY + row * verticalSpacing
+      // Photo pin center for positioning
+      const photoPinCenterX = photoPinX + photoPinSize / 2
+      const photoPinCenterY = photoPinY + photoPinSize / 2
+
+      limitedResults.forEach((profile, index) => {
+        const profileId = createShapeId()
+
+        // Calculate angle for this profile card
+        const angle = startAngle + (direction * angleSpacing * index)
+
+        // Calculate ideal position using polar coordinates
+        const idealX = photoPinCenterX + radius * Math.cos(angle) - profileCardWidth / 2
+        const idealY = photoPinCenterY + radius * Math.sin(angle) - profileCardHeight / 2
 
         // Find non-colliding position with padding
         const position = findNonCollidingPosition(
@@ -709,23 +743,23 @@ export function DetectiveBoard() {
         profileShapes.push({ id: profileId, x: position.x, y: position.y, profile })
 
         // Create red rope connection from photo pin to profile pin
-        // Calculate pin positions (pins are centered at top of each card)
-        // Photo pin: center at top + 12px (4px offset + 16px height / 2)
-        // Profile card pin: center at top + 18px (8px offset + 20px height / 2)
-        const photoPinCenterX = photoPinX + photoPinSize / 2
-        const photoPinCenterY = photoPinY + 12
+        // Calculate pin positions (at bottom of pin balls)
+        // Photo pin: bottom of ball at top + 20px (4px offset + 16px height)
+        // Profile card pin: bottom of ball at top + 28px (8px offset + 20px height)
+        const photoPinAnchorX = photoPinX + photoPinSize / 2
+        const photoPinAnchorY = photoPinY + 20
         const profilePinCenterX = position.x + profileCardWidth / 2
-        const profilePinCenterY = position.y + 18
+        const profilePinCenterY = position.y + 28
 
         // Calculate angle and distance between pins
-        const dx = profilePinCenterX - photoPinCenterX
-        const dy = profilePinCenterY - photoPinCenterY
-        const angle = Math.atan2(dy, dx)
+        const dx = profilePinCenterX - photoPinAnchorX
+        const dy = profilePinCenterY - photoPinAnchorY
+        const ropeAngle = Math.atan2(dy, dx)
         const ropeLength = Math.sqrt(dx * dx + dy * dy)
 
         // Position rope starting at the photo pin
-        const ropeX = photoPinCenterX
-        const ropeY = photoPinCenterY
+        const ropeX = photoPinAnchorX
+        const ropeY = photoPinAnchorY
 
         const ropeId = createShapeId()
         editor.createShape({
@@ -733,7 +767,7 @@ export function DetectiveBoard() {
           type: 'temporal_rope',
           x: ropeX,
           y: ropeY,
-          rotation: angle,
+          rotation: ropeAngle,
           props: {
             w: ropeLength,
             h: 3,
@@ -759,17 +793,17 @@ export function DetectiveBoard() {
           if (hasCommonCompany || hasCommonLocation || hasCommonDomain) {
             const ropeId = createShapeId()
 
-            // Calculate pin positions (pins are centered at top of cards)
-            // Profile card pin: center at top + 18px (8px offset + 20px height / 2)
+            // Calculate pin positions (at bottom of pin balls)
+            // Profile card pin: bottom of ball at top + 28px (8px offset + 20px height)
             const profile1PinCenterX = profile1.x + profileCardWidth / 2
-            const profile1PinCenterY = profile1.y + 18
+            const profile1PinCenterY = profile1.y + 28
             const profile2PinCenterX = profile2.x + profileCardWidth / 2
-            const profile2PinCenterY = profile2.y + 18
+            const profile2PinCenterY = profile2.y + 28
 
             // Calculate angle and distance between pins
             const dx = profile2PinCenterX - profile1PinCenterX
             const dy = profile2PinCenterY - profile1PinCenterY
-            const angle = Math.atan2(dy, dx)
+            const ropeAngle = Math.atan2(dy, dx)
             const ropeLength = Math.sqrt(dx * dx + dy * dy)
 
             // Position rope starting at profile1 pin
@@ -781,7 +815,7 @@ export function DetectiveBoard() {
               type: 'temporal_rope',
               x: ropeX,
               y: ropeY,
-              rotation: angle,
+              rotation: ropeAngle,
               props: {
                 w: ropeLength,
                 h: 3,
@@ -795,8 +829,40 @@ export function DetectiveBoard() {
         }
       }
 
+      // Auto-zoom to fit all elements on screen
+      setTimeout(() => {
+        const allShapes = editor.getCurrentPageShapes()
+        if (allShapes.length > 0) {
+          // Calculate bounding box of all shapes
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+
+          allShapes.forEach((shape: any) => {
+            const bounds = editor.getShapePageBounds(shape.id)
+            if (bounds) {
+              minX = Math.min(minX, bounds.minX)
+              minY = Math.min(minY, bounds.minY)
+              maxX = Math.max(maxX, bounds.maxX)
+              maxY = Math.max(maxY, bounds.maxY)
+            }
+          })
+
+          // Add padding
+          const padding = 100
+          const contentBox = new Box(
+            minX - padding,
+            minY - padding,
+            maxX - minX + padding * 2,
+            maxY - minY + padding * 2
+          )
+
+          // Zoom to fit with animation
+          editor.zoomToBounds(contentBox, {
+            animation: { duration: 500 },
+            targetZoom: Math.min(editor.getZoomLevel(), 1) // Don't zoom in more than 100%
+          })
+        }
+      }, 100) // Small delay to ensure all shapes are rendered
       // Add a note card with search summary - position close to photo pin
-      const noteId = createShapeId()
       editor.createShape({
         id: noteId,
         type: 'note-card',
@@ -864,7 +930,7 @@ export function DetectiveBoard() {
     } finally {
       setIsSearching(false)
     }
-  }, [editor, findNonCollidingPosition])
+  }, [editor, findNonCollidingPosition, leadBranchingFactor])
 
   return (
     <div
@@ -889,10 +955,57 @@ export function DetectiveBoard() {
       >
         <AssetTracker />
       </Tldraw>
-      <SearchPanel 
+      <SearchPanel
         onImageUpload={handleImageUpload}
         isSearching={isSearching}
       />
+      {/* Lead Branching Factor Slider */}
+      <div
+        style={{
+          position: 'fixed',
+          bottom: '20px',
+          right: '240px',
+          background: 'rgba(255, 255, 255, 0.95)',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(139, 69, 19, 0.3)',
+          zIndex: 999,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          minWidth: '200px',
+        }}
+      >
+        <label
+          htmlFor="branching-slider"
+          style={{
+            fontSize: '13px',
+            fontWeight: '600',
+            color: '#8b4513',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Leads: {leadBranchingFactor}
+        </label>
+        <input
+          id="branching-slider"
+          type="range"
+          min="1"
+          max="10"
+          value={leadBranchingFactor}
+          onChange={(e) => setLeadBranchingFactor(parseInt(e.target.value))}
+          style={{
+            flex: 1,
+            height: '4px',
+            borderRadius: '2px',
+            outline: 'none',
+            background: `linear-gradient(to right, #8b4513 0%, #8b4513 ${(leadBranchingFactor - 1) * 11.11}%, #ddd ${(leadBranchingFactor - 1) * 11.11}%, #ddd 100%)`,
+            cursor: 'pointer',
+          }}
+        />
+      </div>
     </div>
   )
 }

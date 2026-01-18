@@ -8,11 +8,8 @@ from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from serpapi import GoogleSearch
 from linkedin_service import scrape_user, scrape_company
-<<<<<<< HEAD
 from sherlock_generator import stream_sherlock
 import time
-=======
->>>>>>> 8308dbe52dd93131976eee139a6e812327f8bddb
 
 load_dotenv()
 

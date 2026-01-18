@@ -1458,7 +1458,9 @@ export function DetectiveBoard() {
 		  type: 'note-card',
 		  x: 0,
 		  y: 0,
-      text : inputstr
+      props :{
+        text : inputstr
+      }
 		})
     const eventSource = new EventSource('http://127.0.0.1:5000/api/search/'+inputstr);
     eventSource.onmessage = (event) => {
@@ -1469,7 +1471,9 @@ export function DetectiveBoard() {
 		      type: 'note-card',
 		      x: 0,
 		      y: 0,
-          text : `${data.name} : ${data.url}`
+          props :{
+            text : `${data.name} : ${data.url}`
+          }
 		    })
     };
     eventSource.onerror = () => {

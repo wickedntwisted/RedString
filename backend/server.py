@@ -4,11 +4,12 @@ import os
 import json
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, Response, stream_with_context
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 from werkzeug.utils import secure_filename
 from serpapi import GoogleSearch
 from linkedin_service import scrape_user, scrape_company
 from sherlock_generator import stream_sherlock
+from naminter_generator import stream_naminter
 import time
 
 load_dotenv()
@@ -33,6 +34,7 @@ client = session.client('s3', **{
 })
 
 app = Flask(__name__)
+app.config['CORS_HEADERS'] = 'Content-Type'
 CORS(app)
 
 def build_image_url(filename: str) -> str:
@@ -147,10 +149,43 @@ def get_text():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/search/<username>')
-def search_username(username):
+@app.route('/api/search_sherlock/<username>')
+def search_sherlock_username(username):
+    print(f"searching for user: {username}")
     async def generate():
         async for result in stream_sherlock(username):
+            yield f"data: {result}\n\n"  # SSE format
+
+    # Run async generator in sync context
+    def sync_generate():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            async_gen = generate()
+            while True:
+                try:
+                    result = loop.run_until_complete(async_gen.__anext__())
+                    yield result
+                except StopAsyncIteration:
+                    print(f"[DEBUG] Stream complete for username: {username}")
+                    break
+        finally:
+            loop.close()
+
+    return Response(
+        stream_with_context(sync_generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no'  # Disable nginx buffering
+        }
+    )
+
+@app.route('/api/search_naminter/<username>')
+def search_naminter_username(username):
+    print(f"searching for NAMINTER user: {username}")
+    async def generate():
+        async for result in stream_naminter(username):
             yield f"data: {result}\n\n"  # SSE format
     
     # Run async generator in sync context

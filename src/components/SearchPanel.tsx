@@ -5,12 +5,18 @@ interface SearchPanelProps {
   onImageUpload: (file: File | string) => void
   isSearching: boolean
   onTextSearch: (searchTerm: string) => void
+  onExpandChange?: (isExpanded: boolean) => void
 }
 
 
-export function SearchPanel({ onImageUpload, isSearching, onTextSearch }: SearchPanelProps) {
+export function SearchPanel({ onImageUpload, isSearching, onTextSearch, onExpandChange }: SearchPanelProps) {
   const [dragActive, setDragActive] = useState(false)
   const [isExpanded, setIsExpanded] = useState(true)
+
+  const updateExpanded = (expanded: boolean) => {
+    setIsExpanded(expanded)
+    onExpandChange?.(expanded)
+  }
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
@@ -29,14 +35,14 @@ export function SearchPanel({ onImageUpload, isSearching, onTextSearch }: Search
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       onImageUpload(e.dataTransfer.files[0])
-      setIsExpanded(false)
+      updateExpanded(false)
     }
   }
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       onImageUpload(e.target.files[0])
-      setIsExpanded(false)
+      updateExpanded(false)
     }
   }
 
@@ -46,7 +52,7 @@ export function SearchPanel({ onImageUpload, isSearching, onTextSearch }: Search
         <div className="search-panel">
           <button
             className="search-panel-toggle"
-            onClick={() => setIsExpanded(false)}
+            onClick={() => updateExpanded(false)}
             title="Minimize"
           >
             ✕
@@ -55,7 +61,7 @@ export function SearchPanel({ onImageUpload, isSearching, onTextSearch }: Search
             <h2>Detective Board</h2>
             <p>Upload a photo to search for profiles</p>
           </div>
-          
+
           <h3>
             Search With a Username/Email
           </h3>
@@ -66,6 +72,7 @@ export function SearchPanel({ onImageUpload, isSearching, onTextSearch }: Search
                 const input = e.currentTarget.querySelector('input[type="text"]') as HTMLInputElement;
                 if (input) {
                   onTextSearch(input.value)
+                  updateExpanded(false)
                 }
               }}
               className="text-search-form"
@@ -134,7 +141,7 @@ export function SearchPanel({ onImageUpload, isSearching, onTextSearch }: Search
       ) : (
         <button
           className="search-panel-button"
-          onClick={() => setIsExpanded(true)}
+          onClick={() => updateExpanded(true)}
           title="Upload Image"
         >
           📷

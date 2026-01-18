@@ -323,7 +323,9 @@ function AssetTracker() {
 export function DetectiveBoard() {
   const [editor, setEditor] = useState<Editor | null>(null)
   const [isSearching, setIsSearching] = useState(false)
+  const [isSherlockSearching, setIsSherlockSearching] = useState(false)
   const [leadBranchingFactor, setLeadBranchingFactor] = useState(2)
+  const [isPanelExpanded, setIsPanelExpanded] = useState(true)
 
   // Handle rope confirmation
   const handleRopeConfirm = useCallback((shapeId: string) => {
@@ -413,7 +415,7 @@ export function DetectiveBoard() {
     }
   }, [handleRopeConfirm, handleRopeDiscard])
 
-  // Update rope positions when connected shapes move
+  // Update rope positions when connected shapes move and clean up orphaned ropes
   React.useEffect(() => {
     if (!editor) return
 
@@ -480,7 +482,10 @@ export function DetectiveBoard() {
       const allShapes = editor.getCurrentPageShapes()
       const ropes = allShapes.filter((shape: any) => shape.type === 'temporal_rope' || shape.type === 'rope')
 
-      // Update each rope
+      // Track ropes to delete
+      const ropesToDelete: string[] = []
+
+      // Update each rope or mark for deletion if orphaned
       ropes.forEach((rope: any) => {
         const fromShapeId = rope.props.fromShapeId
         const toShapeId = rope.props.toShapeId
@@ -489,11 +494,20 @@ export function DetectiveBoard() {
           const fromShape = editor.getShape(fromShapeId as any)
           const toShape = editor.getShape(toShapeId as any)
 
-          if (fromShape && toShape) {
+          // If either connected shape is missing, mark rope for deletion
+          if (!fromShape || !toShape) {
+            ropesToDelete.push(rope.id)
+          } else {
+            // Both shapes exist, update rope position
             updateRopePosition(rope, fromShape, toShape)
           }
         }
       })
+
+      // Delete orphaned ropes
+      if (ropesToDelete.length > 0) {
+        editor.deleteShapes(ropesToDelete as any)
+      }
     }
 
     // Listen to shape changes
@@ -624,24 +638,42 @@ export function DetectiveBoard() {
     }))
   }
 
+  const mainNotePosition = {x:0, y:0}
   function handleTextUpload(inputstr : string) {
     if (!editor) return
     const original_id = createShapeId()
 		editor.createShape({
       id : original_id,
 		  type: 'note-card',
-		  x: 0,
-		  y: 0,
+		  x: mainNotePosition.x,
+		  y: mainNotePosition.y,
       props :{
-        text : inputstr
+        text : inputstr,
+        w: noteCardWidth,
+        h: noteCardHeight
       }
 		})
-    const eventSource = new EventSource('http://127.0.0.1:5000/api/search/'+inputstr);
-    eventSource.onmessage = (event) => {
+
+    // Track result index for radial positioning
+    let resultIndex = 0
+
+    // Radial layout parameters
+    const startAngle = Math.random() * 2 * Math.PI
+    const direction = Math.random() < 0.5 ? 1 : -1
+    const radius = 350
+    const angleSpacing = Math.PI / 4 // 45 degrees between results
+
+    // Main note center for positioning
+    const mainNoteCenterX = mainNotePosition.x + noteCardWidth / 2
+    const mainNoteCenterY = mainNotePosition.y + noteCardHeight / 2
+
+    const eventSource2 = new EventSource('http://127.0.0.1:5000/api/search_naminter/'+inputstr);
+    eventSource2.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        console.log(`Found: ${data.name} at ${data.url}`);
-		    editor.createShape({
-          id : createShapeId(),
+        console.log(`Found NAMINTER DATA: ${data.name} at ${data.url}`);
+        const new_id = createShapeId()
+		    editor.createShape<NoteCardUtil>({
+          id : new_id,
 		      type: 'note-card',
 		      x: 0,
 		      y: 0,
@@ -649,10 +681,183 @@ export function DetectiveBoard() {
             text : `${data.name} : ${data.url}`
           }
 		    })
+        // Calculate angle for this result
+        const angle = startAngle + (direction * angleSpacing * resultIndex)
+
+        // Calculate ideal position using polar coordinates
+        const idealX = mainNoteCenterX + radius * Math.cos(angle) - noteCardWidth / 2
+        const idealY = mainNoteCenterY + radius * Math.sin(angle) - noteCardHeight / 2
+
+        // Find non-colliding position with padding
+        const position = findNonCollidingPosition(
+          editor,
+          idealX,
+          idealY,
+          noteCardWidth,
+          noteCardHeight,
+          50
+        )
+
+        const resultNoteId = createShapeId()
+		    editor.createShape<NoteCardUtil>({
+          id : resultNoteId,
+		      type: 'note-card',
+		      x: position.x,
+		      y: position.y,
+          props :{
+            text : `${data.name} : ${data.url}`,
+            w: noteCardWidth,
+            h: noteCardHeight
+          }
+		    })
+
+        // Create red rope connection from main note to result note
+        // Calculate pin positions (at bottom of pin balls)
+        // Note card pin: bottom of ball at top + 20px (6px offset + 14px height)
+        const mainNotePinX = mainNoteCenterX
+        const mainNotePinY = mainNotePosition.y + 20
+        const resultNotePinX = position.x + noteCardWidth / 2
+        const resultNotePinY = position.y + 20
+
+        // Calculate angle and distance between pins
+        const dx = resultNotePinX - mainNotePinX
+        const dy = resultNotePinY - mainNotePinY
+        const ropeAngle = Math.atan2(dy, dx)
+        const ropeLength = Math.sqrt(dx * dx + dy * dy)
+
+        // Position rope starting at the main note pin
+        const ropeX = mainNotePinX
+        const ropeY = mainNotePinY
+
+        const ropeId = createShapeId()
+        editor.createShape({
+          id: ropeId,
+          type: 'temporal_rope',
+          x: ropeX,
+          y: ropeY,
+          rotation: ropeAngle,
+          props: {
+            w: ropeLength,
+            h: 3,
+            thickness: 3,
+            confirmed: false,
+            fromShapeId: original_id,
+            toShapeId: resultNoteId,
+          },
+        })
+
+        resultIndex++
     };
-    eventSource.onerror = () => {
+    eventSource2.onerror = () => {
+      console.log("ERRORR")
         eventSource.close();
     };
+    const eventSource = new EventSource('http://127.0.0.1:5000/api/search_sherlock/'+inputstr);
+    eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        console.log('[Sherlock] Received message:', data);
+
+        // Check if this is a completion message
+        if (data.done) {
+          console.log('[Sherlock] Received completion signal');
+          if (timeoutId) clearTimeout(timeoutId)
+          if (zoomDebounceId) clearTimeout(zoomDebounceId)
+          eventSource.close();
+          setIsSherlockSearching(false);
+          // Final zoom to fit everything
+          zoomToFitAll();
+          return;
+        }
+
+        console.log(`[Sherlock] Found: ${data.name} at ${data.url}`);
+        messageCount++
+        resetTimeout()
+
+        // Calculate angle for this result
+        const angle = startAngle + (direction * angleSpacing * resultIndex)
+
+        // Calculate ideal position using polar coordinates
+        const idealX = mainNoteCenterX + radius * Math.cos(angle) - noteCardWidth / 2
+        const idealY = mainNoteCenterY + radius * Math.sin(angle) - noteCardHeight / 2
+
+        // Find non-colliding position with padding
+        const position = findNonCollidingPosition(
+          editor,
+          idealX,
+          idealY,
+          noteCardWidth,
+          noteCardHeight,
+          50
+        )
+
+        const resultNoteId = createShapeId()
+		    editor.createShape<NoteCardUtil>({
+          id : resultNoteId,
+		      type: 'note-card',
+		      x: position.x,
+		      y: position.y,
+          props :{
+            text : `${data.name} : ${data.url}`,
+            w: noteCardWidth,
+            h: noteCardHeight
+          }
+		    })
+
+        // Create red rope connection from main note to result note
+        // Calculate pin positions (at bottom of pin balls)
+        // Note card pin: bottom of ball at top + 20px (6px offset + 14px height)
+        const mainNotePinX = mainNoteCenterX
+        const mainNotePinY = mainNotePosition.y + 20
+        const resultNotePinX = position.x + noteCardWidth / 2
+        const resultNotePinY = position.y + 20
+
+        // Calculate angle and distance between pins
+        const dx = resultNotePinX - mainNotePinX
+        const dy = resultNotePinY - mainNotePinY
+        const ropeAngle = Math.atan2(dy, dx)
+        const ropeLength = Math.sqrt(dx * dx + dy * dy)
+
+        // Position rope starting at the main note pin
+        const ropeX = mainNotePinX
+        const ropeY = mainNotePinY
+
+        const ropeId = createShapeId()
+        editor.createShape({
+          id: ropeId,
+          type: 'temporal_rope',
+          x: ropeX,
+          y: ropeY,
+          rotation: ropeAngle,
+          props: {
+            w: ropeLength,
+            h: 3,
+            thickness: 3,
+            confirmed: false,
+            fromShapeId: original_id,
+            toShapeId: resultNoteId,
+          },
+        })
+
+        resultIndex++
+
+        // Zoom out to fit all content after each new result (debounced)
+        debouncedZoom()
+    };
+
+    eventSource.onerror = (error) => {
+        console.log('[Sherlock] EventSource error:', error);
+        if (timeoutId) clearTimeout(timeoutId)
+        if (zoomDebounceId) clearTimeout(zoomDebounceId)
+        eventSource.close();
+        setIsSherlockSearching(false)
+        // Only zoom if we got some results
+        if (messageCount > 0) {
+          zoomToFitAll()
+        }
+    };
+
+    // Start initial timeout
+    resetTimeout()
 
   }
   const handleImageUpload = useCallback(async (file: File | string) => {
@@ -983,6 +1188,7 @@ export function DetectiveBoard() {
         onImageUpload={handleImageUpload}
         onTextSearch={handleTextUpload}
         isSearching={isSearching}
+        onExpandChange={setIsPanelExpanded}
       />
       {/* Lead Branching Factor Slider */}
       <div
@@ -1031,6 +1237,62 @@ export function DetectiveBoard() {
           }}
         />
       </div>
+
+      {/* Sherlock Searching Indicator */}
+      {isSherlockSearching && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(139, 69, 19, 0.95)',
+            borderRadius: '12px',
+            padding: '16px 24px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+            backdropFilter: 'blur(10px)',
+            border: '2px solid rgba(220, 38, 38, 0.5)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            animation: 'sherlockFadeIn 0.3s ease-in',
+          }}
+        >
+          <div
+            style={{
+              width: '24px',
+              height: '24px',
+              border: '3px solid rgba(255, 255, 255, 0.3)',
+              borderTop: '3px solid #fff',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+            }}
+          />
+          <span
+            style={{
+              color: '#fff',
+              fontSize: '14px',
+              fontWeight: '600',
+              letterSpacing: '0.5px',
+            }}
+          >
+            Sherlock is investigating...
+          </span>
+          <style>
+            {`
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+              @keyframes sherlockFadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+              }
+            `}
+          </style>
+        </div>
+      )}
     </div>
   )
 }
